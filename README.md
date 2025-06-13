@@ -36,3 +36,18 @@ auth-system/
 
 
 ##### Currently adding the insecure cockrochDB need to make it secure + TLS 
+#### Add the 4 roles user, guest, admin, 
+
+
+```
+| Action / Endpoint                               | `guest` |       `user`       | `moderator` | `admin` |
+| ----------------------------------------------- | :-----: | :----------------: | :---------: | :-----: |
+| View public API (e.g. `GET /welcome`)           |    ✔️   |         ✔️         |      ✔️     |    ✔️   |
+| Sign up / Login (`POST /register`)              |    ✔️   |          ❌         |      ❌      |    ❌    |
+| View own profile (`GET /profile`)               |    ❌    |         ✔️         |      ✔️     |    ✔️   |
+| Edit own profile (`PUT /profile`)               |    ❌    |         ✔️         |      ✔️     |    ✔️   |
+| Access premium resources                        |    ❌    | ❌ (unless premium) |      ❌      |    ✔️   |
+| Moderate user content (`DELETE /posts/:id`)     |    ❌    |          ❌         |      ✔️     |    ✔️   |
+| Manage users (`POST /user/ban`)                 |    ❌    |          ❌         |    ✔️ (±)   |    ✔️   |
+| View logs / system settings (`GET /admin/logs`) |    ❌    |          ❌         |      ❌      |    ✔️   |
+```

@@ -6,7 +6,7 @@ import (
 )
 
 type DBUser struct {
-	ID       uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
+	Id        uuid.UUID `gorm:"primaryKey,column:id"`
 	Name     string    `json:"name"`
 	Email    string    `json:"email"`
 	Password string    `json:"password"`
