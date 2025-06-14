@@ -1,6 +1,7 @@
-version: '3'
+version: '3.8'
+
 services:
-  cockroach:
+  db:
     image: cockroachdb/cockroach:v23.1.11
     command: start-single-node --insecure
     ports:
@@ -8,7 +9,44 @@ services:
       - "8081:8080"
     volumes:
       - cockroach-data:/cockroach/cockroach-data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health?ready=1"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+    networks:
+      - mynetwork
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - mynetwork
+
+  app:
+    build:
+      context: .
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=default
+      - DB_PORT=26257
+      - REDIS_HOST=redis
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - mynetwork
 
 volumes:
   cockroach-data:
+  redis-data:
 
+networks:
+  mynetwork:
+    driver: bridge

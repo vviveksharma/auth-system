@@ -6,11 +6,12 @@ import (
 )
 
 type DBUser struct {
-	Id        uuid.UUID `gorm:"primaryKey,column:id"`
+	Id       uuid.UUID `gorm:"primaryKey,column:id"`
 	Name     string    `json:"name"`
 	Email    string    `json:"email"`
 	Password string    `json:"password"`
 	Role     string    `json:"role"`
+	JWT      string    `json:"jwt"`
 }
 
 func (DBUser) TableName() string {

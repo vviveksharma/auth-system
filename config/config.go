@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/joho/godotenv"
 	"github.com/vviveksharma/auth/db"
 	"github.com/vviveksharma/auth/internal/controllers"
 	"github.com/vviveksharma/auth/internal/services"
@@ -13,6 +14,12 @@ import (
 
 func Init() {
 	app := fiber.New()
+
+	err := godotenv.Load("./.env")
+	if err != nil {
+		log.Fatal("Error loading .env file", err)
+	}
+
 	db.ConnectDB()
 
 	userService, err := services.NewUserService()

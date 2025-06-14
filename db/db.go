@@ -12,7 +12,7 @@ import (
 var DB *gorm.DB
 
 func ConnectDB() {
-	dsn := "postgresql://root@localhost:26257/defaultdb?sslmode=disable"
+	dsn := "postgresql://root@db:26257/defaultdb?sslmode=disable"
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal("Failed to connect to CockroachDB: ", err)

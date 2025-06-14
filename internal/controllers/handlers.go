@@ -62,3 +62,23 @@ func (h *Handler) CreateUser(ctx *fiber.Ctx) error {
 		Message: resp.Message,
 	})
 }
+
+func (h *Handler) GetUserDetails(ctx *fiber.Ctx) error {
+	req := &models.GetUserDetailsRequest{}
+	userId := ctx.Locals("userId").(string)
+	fmt.Println("the userid: ", userId)
+	req.Id = userId
+	resp, err := h.UserService.GetUserDetails(req)
+	if err != nil {
+		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(err)
+		} else {
+			return ctx.JSON(500, "an unexpected error occurred")
+		}
+	}
+	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
+		Code:    200,
+		Message: "",
+		Data:    resp,
+	})
+}

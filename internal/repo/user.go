@@ -11,6 +11,7 @@ import (
 type UserRepositoryInterface interface {
 	CreateUser(user *models.DBUser) error
 	GetUserDetails(id uuid.UUID) (userDetails *models.DBUser, err error)
+	GetUserByEmail(email string) (userDetails *models.DBUser, err error)
 }
 
 type UserRepository struct {
@@ -45,6 +46,22 @@ func (ur *UserRepository) GetUserDetails(id uuid.UUID) (userDetails *models.DBUs
 	defer transaction.Rollback()
 	user := transaction.First(&userDetails, models.DBUser{
 		Id: id,
+	})
+	if user.Error != nil {
+		return nil, user.Error
+	}
+	transaction.Commit()
+	return userDetails, nil
+}
+
+func (ur *UserRepository) GetUserByEmail(email string) (userDetails *models.DBUser, err error) {
+	transaction := ur.DB.Begin()
+	if transaction.Error != nil {
+		return nil, transaction.Error
+	}
+	defer transaction.Rollback()
+	user := transaction.First(&userDetails, models.DBUser{
+		Email: email,
 	})
 	if user.Error != nil {
 		return nil, user.Error
