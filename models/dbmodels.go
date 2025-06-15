@@ -23,3 +23,19 @@ func (*DBUser) BeforeCreate(tx *gorm.DB) error {
 	tx.Statement.SetColumn("Id", uuid)
 	return nil
 }
+
+type DBRoles struct {
+	Id     uuid.UUID `gorm:"primaryKey,column:id"`
+	Role   string    `json:"role"`
+	RoleId uuid.UUID `json:"role_id"`
+}
+
+func (DBRoles) TableName() string {
+	return "role_tbl"
+}
+
+func(*DBRoles) BeforeCreate(tx *gorm.DB) error {
+	uuid := uuid.New().String()
+	tx.Statement.SetColumn("Id", uuid)
+	return nil
+}

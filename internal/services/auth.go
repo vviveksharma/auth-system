@@ -29,5 +29,3 @@ func (a *Auth) SetupRepo() error {
 	a.UserRepo = user
 	return nil
 }
-
-func (a *Auth) Login()

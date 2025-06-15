@@ -46,7 +46,7 @@ Auth
             /auth/refresh	            POST	Refresh expired JWT	user, moderator, admin 
 User	
             /users/me	                GET	    Get current user’s profile	user+ roles
-            /users/me	                PUT	    Update own profile	user+ roles
+            /users/me	                PUT	    Update own profile	user 
             /users/:id	                GET	    Get user by ID (admin view)	admin, moderator
             /users/:id/roles	        PUT	    Assign roles to a user (e.g., make premium)	admin
 Roles	

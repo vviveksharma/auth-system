@@ -7,6 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
 	"github.com/vviveksharma/auth/db"
+	"github.com/vviveksharma/auth/initsetup"
 	"github.com/vviveksharma/auth/internal/controllers"
 	"github.com/vviveksharma/auth/internal/services"
 	"github.com/vviveksharma/auth/routes"
@@ -21,6 +22,9 @@ func Init() {
 	}
 
 	db.ConnectDB()
+
+	//Create Roles in the db
+	initsetup.InitRoles()
 
 	userService, err := services.NewUserService()
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	dbmodels "github.com/vviveksharma/auth/internal/models"
 	"github.com/vviveksharma/auth/models"
 	"gorm.io/gorm"
 )
@@ -12,6 +13,7 @@ type UserRepositoryInterface interface {
 	CreateUser(user *models.DBUser) error
 	GetUserDetails(id uuid.UUID) (userDetails *models.DBUser, err error)
 	GetUserByEmail(email string) (userDetails *models.DBUser, err error)
+	UpdateUserFields(userID uuid.UUID, input *dbmodels.UpdateUserRequest) error
 }
 
 type UserRepository struct {
@@ -68,4 +70,39 @@ func (ur *UserRepository) GetUserByEmail(email string) (userDetails *models.DBUs
 	}
 	transaction.Commit()
 	return userDetails, nil
+}
+
+func (r *UserRepository) UpdateUserFields(userID uuid.UUID, input *dbmodels.UpdateUserRequest) error {
+	tx := r.DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	updates := map[string]interface{}{}
+
+	if input.Name != nil {
+		updates["name"] = *input.Name
+	}
+	if input.Email != nil {
+		updates["email"] = *input.Email
+	}
+	if input.Password != nil {
+		updates["password"] = *input.Password
+	}
+
+	if len(updates) == 0 {
+		tx.Rollback()
+		return nil
+	}
+
+	fmt.Println("the update models is:", updates)
+
+	if err := tx.Model(&models.DBUser{}).
+		Where("id = ?", userID).
+		Updates(updates).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
 }

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/google/uuid"
@@ -13,6 +14,7 @@ import (
 type UserService interface {
 	CreateUser(req *models.UserRequest) (*models.UserResponse, error)
 	GetUserDetails(req *models.GetUserDetailsRequest) (*models.UserDetailsResponse, error)
+	UpdateUserDetails(req *models.UpdateUserRequest, userId string) (*models.UpdateUserResponse, error)
 }
 
 type User struct {
@@ -96,5 +98,34 @@ func (u *User) GetUserDetails(req *models.GetUserDetailsRequest) (*models.UserDe
 		Email: userDetails.Email,
 		Name:  userDetails.Name,
 		Role:  userDetails.Role,
+	}, nil
+}
+
+func (u *User) UpdateUserDetails(req *models.UpdateUserRequest, userId string) (*models.UpdateUserResponse, error) {
+	userDetails, err := u.UserRepo.GetUserDetails(uuid.MustParse(userId))
+	if err != nil {
+		if err.Error() == "record not found" {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    404,
+				Message: "user with name doesnot exist",
+			}
+		} else {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    500,
+				Message: "error while creating the userdetails: " + err.Error(),
+			}
+		}
+	}
+	fmt.Println("the user present with the details: ", userDetails)
+	fmt.Println("the request : ", req.Email , req.Name, req.Password)
+	err = u.UserRepo.UpdateUserFields(uuid.MustParse(userId), req)
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while updating the user details: " + err.Error(),
+		}
+	}
+	return &models.UpdateUserResponse{
+		Message: "user updated successfully",
 	}, nil
 }

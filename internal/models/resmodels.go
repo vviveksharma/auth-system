@@ -13,3 +13,7 @@ type UserDetailsResponse struct {
 type LoginResponse struct {
 	Jwt string `json:"jwt"`
 }
+
+type UpdateUserResponse struct {
+	Message string `json:"message"`
+}

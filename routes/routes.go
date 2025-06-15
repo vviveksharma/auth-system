@@ -9,7 +9,8 @@ import (
 func Routes(app *fiber.App, h *controllers.Handler) {
 	app.Get("/health", h.Welcome)
 	auth := app.Group("/auth")
-	user := app.Group("/user", middlewares.ExtractHeadersMiddleware())
 	auth.Post("/register", h.CreateUser)
+	user := app.Group("/user", middlewares.ExtractHeadersMiddleware())
 	user.Get("/me", h.GetUserDetails)
+	user.Put("/me", h.UpdateUserDetails)
 }

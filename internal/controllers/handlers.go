@@ -82,3 +82,29 @@ func (h *Handler) GetUserDetails(ctx *fiber.Ctx) error {
 		Data:    resp,
 	})
 }
+
+func (h *Handler) UpdateUserDetails(ctx *fiber.Ctx) error {
+	req := &models.UpdateUserRequest{}
+	err := ctx.BodyParser(&req)
+	if err != nil {
+		log.Println("Error in parsing the request Body" + err.Error())
+		return &fiber.Error{
+			Code:    fiber.StatusBadGateway,
+			Message: "error while parsing the requestBody: " + err.Error(),
+		}
+	}
+	userId := ctx.Locals("userId").(string)
+	fmt.Println("the userid: ", userId)
+	resp, err := h.UserService.UpdateUserDetails(req, userId)
+	if err != nil {
+		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(err)
+		} else {
+			return ctx.JSON(500, "an unexpected error occurred")
+		}
+	}
+	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
+		Code:    200,
+		Message: resp.Message,
+	})
+}
