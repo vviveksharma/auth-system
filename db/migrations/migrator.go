@@ -8,6 +8,6 @@ import (
 )
 
 func AutoMigrator(DB *gorm.DB) {
-	DB.AutoMigrate(models.DBUser{}, models.DBRoles{})
+	DB.AutoMigrate(models.DBUser{}, models.DBRoles{}, models.DBLogin{})
 	fmt.Println("Migrations done!!!")
 }

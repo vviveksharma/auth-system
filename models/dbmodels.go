@@ -10,8 +10,7 @@ type DBUser struct {
 	Name     string    `json:"name"`
 	Email    string    `json:"email"`
 	Password string    `json:"password"`
-	Role     string    `json:"role"`
-	JWT      string    `json:"jwt"`
+	Role     []string  `json:"role"`
 }
 
 func (DBUser) TableName() string {
@@ -34,7 +33,24 @@ func (DBRoles) TableName() string {
 	return "role_tbl"
 }
 
-func(*DBRoles) BeforeCreate(tx *gorm.DB) error {
+func (*DBRoles) BeforeCreate(tx *gorm.DB) error {
+	uuid := uuid.New().String()
+	tx.Statement.SetColumn("Id", uuid)
+	return nil
+}
+
+type DBLogin struct {
+	Id      uuid.UUID `gorm:"primaryKey,column:id"`
+	UserId  uuid.UUID `json:"user_id"`
+	LoginId uuid.UUID `json:"login_id"`
+	JWT     string    `json:"jwt"`
+}
+
+func (DBLogin) TableName() string {
+	return "login_tbl"
+}
+
+func (*DBLogin) BeforeCreate(tx *gorm.DB) error {
 	uuid := uuid.New().String()
 	tx.Statement.SetColumn("Id", uuid)
 	return nil

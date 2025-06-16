@@ -59,7 +59,7 @@ func (u *User) CreateUser(req *models.UserRequest) (*models.UserResponse, error)
 		Name:     req.Name,
 		Email:    req.Email,
 		Password: req.Password,
-		Role:     "",
+		Role:     []string{"guest"},
 	})
 	if err != nil {
 		if err.Error() == "record not found" {
@@ -117,7 +117,7 @@ func (u *User) UpdateUserDetails(req *models.UpdateUserRequest, userId string) (
 		}
 	}
 	fmt.Println("the user present with the details: ", userDetails)
-	fmt.Println("the request : ", req.Email , req.Name, req.Password)
+	fmt.Println("the request : ", req.Email, req.Name, req.Password)
 	err = u.UserRepo.UpdateUserFields(uuid.MustParse(userId), req)
 	if err != nil {
 		return nil, &dbmodels.ServiceResponse{
