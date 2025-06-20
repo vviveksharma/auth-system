@@ -15,6 +15,7 @@ type UserService interface {
 	CreateUser(req *models.UserRequest) (*models.UserResponse, error)
 	GetUserDetails(req *models.GetUserDetailsRequest) (*models.UserDetailsResponse, error)
 	UpdateUserDetails(req *models.UpdateUserRequest, userId string) (*models.UpdateUserResponse, error)
+	GetUserById(userId string) (*models.GetUserByIdResponse, error)
 }
 
 type User struct {
@@ -59,7 +60,7 @@ func (u *User) CreateUser(req *models.UserRequest) (*models.UserResponse, error)
 		Name:     req.Name,
 		Email:    req.Email,
 		Password: req.Password,
-		Role:     []string{"guest"},
+		Roles:    []string{"guest"},
 	})
 	if err != nil {
 		if err.Error() == "record not found" {
@@ -97,7 +98,7 @@ func (u *User) GetUserDetails(req *models.GetUserDetailsRequest) (*models.UserDe
 	return &models.UserDetailsResponse{
 		Email: userDetails.Email,
 		Name:  userDetails.Name,
-		Role:  userDetails.Role,
+		Role:  userDetails.Roles,
 	}, nil
 }
 
@@ -127,5 +128,27 @@ func (u *User) UpdateUserDetails(req *models.UpdateUserRequest, userId string) (
 	}
 	return &models.UpdateUserResponse{
 		Message: "user updated successfully",
+	}, nil
+}
+
+func (u *User) GetUserById(userId string) (*models.GetUserByIdResponse, error) {
+	userDetails, err := u.UserRepo.GetUserDetails(uuid.MustParse(userId))
+	if err != nil {
+		if err.Error() == "record not found" {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    404,
+				Message: "user with name doesnot exist",
+			}
+		} else {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    500,
+				Message: "error while creating the userdetails: " + err.Error(),
+			}
+		}
+	}
+	return &models.GetUserByIdResponse{
+		Name:  userDetails.Name,
+		Email: userDetails.Email,
+		Role:  userDetails.Roles,
 	}, nil
 }

@@ -108,3 +108,20 @@ func (h *Handler) UpdateUserDetails(ctx *fiber.Ctx) error {
 		Message: resp.Message,
 	})
 }
+
+func (h *Handler) GetUserByIdDetails(ctx *fiber.Ctx) error {
+	userId := ctx.Locals("userId").(string)
+	resp, err := h.UserService.GetUserById(userId)
+	if err != nil {
+		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(err)
+		} else {
+			return ctx.JSON(500, "an unexpected error occurred")
+		}
+	}
+	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
+		Code:    200,
+		Message: "",
+		Data:    resp,
+	})
+}

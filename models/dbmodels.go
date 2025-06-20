@@ -2,15 +2,16 @@ package models
 
 import (
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
 
 type DBUser struct {
-	Id       uuid.UUID `gorm:"primaryKey,column:id"`
-	Name     string    `json:"name"`
-	Email    string    `json:"email"`
-	Password string    `json:"password"`
-	Role     []string  `json:"role"`
+	Id       uuid.UUID      `gorm:"primaryKey,column:id"`
+	Name     string         `json:"name"`
+	Email    string         `json:"email"`
+	Password string         `json:"password"`
+	Roles    pq.StringArray `gorm:"type:text[]" json:"roles"`
 }
 
 func (DBUser) TableName() string {
