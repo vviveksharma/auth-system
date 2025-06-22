@@ -2,6 +2,7 @@ package repo
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/google/uuid"
 	dbmodels "github.com/vviveksharma/auth/internal/models"
@@ -14,6 +15,7 @@ type UserRepositoryInterface interface {
 	GetUserDetails(id uuid.UUID) (userDetails *models.DBUser, err error)
 	GetUserByEmail(email string) (userDetails *models.DBUser, err error)
 	UpdateUserFields(userID uuid.UUID, input *dbmodels.UpdateUserRequest) error
+	UpdateUserRoles(userId uuid.UUID, role string) error
 }
 
 type UserRepository struct {
@@ -105,4 +107,27 @@ func (r *UserRepository) UpdateUserFields(userID uuid.UUID, input *dbmodels.Upda
 	}
 
 	return tx.Commit().Error
+}
+
+func (r *UserRepository) UpdateUserRoles(userId uuid.UUID, role string) error {
+	transaction := r.DB.Begin()
+	if transaction.Error != nil {
+		return transaction.Error
+	}
+	defer transaction.Rollback()
+	userDetails := models.DBUser{}
+	user := transaction.First(&userDetails, models.DBUser{
+		Id: userId,
+	})
+	if user.Error != nil {
+		return user.Error
+	}
+	log.Println("found out the user")
+	userDetails.Roles = append(userDetails.Roles, role)
+	update := transaction.Save(&userDetails)
+	if update.Error != nil {
+		return update.Error
+	}
+	transaction.Commit()
+	return nil
 }

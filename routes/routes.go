@@ -14,5 +14,6 @@ func Routes(app *fiber.App, h *controllers.Handler) {
 	auth.Post("/register", h.CreateUser)
 	user.Get("/me", middlewares.ExtractHeadersMiddleware(), h.GetUserDetails)
 	user.Put("/me", middlewares.ExtractHeadersMiddleware(), h.UpdateUserDetails)
-	user.Get("/:id", middlewares.ExtractAdminIdMiddleware(), h.GetUserByIdDetails)
+	user.Get("/:id", middlewares.ExtractRoleIdMiddleware(), h.GetUserByIdDetails)
+	user.Put("/:id/roles", middlewares.ExtractRoleIdMiddleware(), h.AssignUserRole)
 }

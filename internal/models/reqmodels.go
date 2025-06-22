@@ -20,3 +20,7 @@ type UpdateUserRequest struct {
 	Email    *string `json:"email"`
 	Password *string `json:"password"`
 }
+
+type AssignRoleRequest struct {
+	Role string `json:"role"`
+}

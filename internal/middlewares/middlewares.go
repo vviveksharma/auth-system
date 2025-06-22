@@ -21,7 +21,7 @@ func ExtractHeadersMiddleware() fiber.Handler {
 	}
 }
 
-func ExtractAdminIdMiddleware() fiber.Handler {
+func ExtractRoleIdMiddleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		roleId := c.Get("roleId")
 		if roleId == "" {

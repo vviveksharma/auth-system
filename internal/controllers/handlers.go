@@ -125,3 +125,28 @@ func (h *Handler) GetUserByIdDetails(ctx *fiber.Ctx) error {
 		Data:    resp,
 	})
 }
+
+func (h *Handler) AssignUserRole(ctx *fiber.Ctx) error {
+	var req *models.AssignRoleRequest
+	err := ctx.BodyParser(&req)
+	if err != nil {
+		log.Println("Error in parsing the request Body" + err.Error())
+		return &fiber.Error{
+			Code:    fiber.StatusBadGateway,
+			Message: "error while parsing the requestBody: " + err.Error(),
+		}
+	}
+	userId := ctx.Params("id")
+	resp, err := h.UserService.AssignUserRole(req, userId)
+	if err != nil {
+		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(err)
+		} else {
+			return ctx.JSON(500, "an unexpected error occurred")
+		}
+	}
+	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
+		Code:    200,
+		Message: resp.Message,
+	})
+}

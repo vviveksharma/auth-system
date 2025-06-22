@@ -23,3 +23,7 @@ type GetUserByIdResponse struct {
 	Email string   `json:"email"`
 	Role  []string `json:"role"`
 }
+
+type AssignRoleResponse struct {
+	Message string `json:"message"`
+}

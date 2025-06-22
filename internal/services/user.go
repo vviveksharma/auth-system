@@ -15,6 +15,7 @@ type UserService interface {
 	GetUserDetails(req *models.GetUserDetailsRequest) (*models.UserDetailsResponse, error)
 	UpdateUserDetails(req *models.UpdateUserRequest, userId string) (*models.UpdateUserResponse, error)
 	GetUserById(userId string) (*models.GetUserByIdResponse, error)
+	AssignUserRole(req *models.AssignRoleRequest, userId string) (*models.AssignRoleResponse, error)
 }
 
 type User struct {
@@ -141,5 +142,32 @@ func (u *User) GetUserById(userId string) (*models.GetUserByIdResponse, error) {
 		Name:  userDetails.Name,
 		Email: userDetails.Email,
 		Role:  userDetails.Roles,
+	}, nil
+}
+
+func (u *User) AssignUserRole(req *models.AssignRoleRequest, userId string) (*models.AssignRoleResponse, error) {
+	userDetails, err := u.UserRepo.GetUserDetails(uuid.MustParse(userId))
+	if err != nil {
+		if err.Error() == "record not found" {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    404,
+				Message: "user with name doesnot exist",
+			}
+		} else {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    500,
+				Message: "error while creating the userdetails: " + err.Error(),
+			}
+		}
+	}
+	err = u.UserRepo.UpdateUserRoles(userDetails.Id, req.Role)
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while assigning the role: " + err.Error(),
+		}
+	}
+	return &models.AssignRoleResponse{
+		Message: "User role updated successfully",
 	}, nil
 }
