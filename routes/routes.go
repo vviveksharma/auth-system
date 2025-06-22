@@ -12,7 +12,7 @@ func Routes(app *fiber.App, h *controllers.Handler) {
 	user := app.Group("/user")
 	//Routes
 	auth.Post("/register", h.CreateUser)
-	user.Get("/me", h.GetUserDetails, middlewares.ExtractHeadersMiddleware())
-	user.Put("/me", h.UpdateUserDetails, middlewares.ExtractHeadersMiddleware())
-	user.Get("/:id", h.GetUserByIdDetails, middlewares.ExtractAdminIdMiddleware())
+	user.Get("/me", middlewares.ExtractHeadersMiddleware(), h.GetUserDetails)
+	user.Put("/me", middlewares.ExtractHeadersMiddleware(), h.UpdateUserDetails)
+	user.Get("/:id", middlewares.ExtractAdminIdMiddleware(), h.GetUserByIdDetails)
 }

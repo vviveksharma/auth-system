@@ -2,7 +2,6 @@ package services
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/google/uuid"
 	"github.com/vviveksharma/auth/db"
@@ -43,19 +42,18 @@ func (u *User) SetupRepo() error {
 
 func (u *User) CreateUser(req *models.UserRequest) (*models.UserResponse, error) {
 	userDetails, err := u.UserRepo.GetUserByEmail(req.Email)
-	if err != nil {
+	if err != nil && err.Error() != "record not found" {
 		return nil, &dbmodels.ServiceResponse{
 			Code:    500,
-			Message: "error while featching the userdetails: " + err.Error(),
+			Message: "error while creating the userdetails: " + err.Error(),
 		}
 	}
-	if userDetails.Email == req.Email {
+	if userDetails != nil && userDetails.Email == req.Email {
 		return nil, &dbmodels.ServiceResponse{
 			Code:    404,
 			Message: "user with name exist please login",
 		}
 	}
-	log.Println("User already exists with the email: ", userDetails.Email)
 	err = u.UserRepo.CreateUser(&dbmodels.DBUser{
 		Name:     req.Name,
 		Email:    req.Email,
@@ -63,16 +61,9 @@ func (u *User) CreateUser(req *models.UserRequest) (*models.UserResponse, error)
 		Roles:    []string{"guest"},
 	})
 	if err != nil {
-		if err.Error() == "record not found" {
-			return nil, &dbmodels.ServiceResponse{
-				Code:    404,
-				Message: "user with name doesnot exist",
-			}
-		} else {
-			return nil, &dbmodels.ServiceResponse{
-				Code:    500,
-				Message: "error while creating the userdetails: " + err.Error(),
-			}
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while creating the userdetails: " + err.Error(),
 		}
 	}
 	return &models.UserResponse{

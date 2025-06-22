@@ -1,6 +1,10 @@
 package middlewares
 
-import "github.com/gofiber/fiber/v2"
+import (
+	"fmt"
+
+	"github.com/gofiber/fiber/v2"
+)
 
 func ExtractHeadersMiddleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
@@ -12,6 +16,7 @@ func ExtractHeadersMiddleware() fiber.Handler {
 			})
 		}
 		c.Locals("userId", userID)
+		fmt.Println("the userId from the middleware: ", userID)
 		return c.Next()
 	}
 }
@@ -21,7 +26,7 @@ func ExtractAdminIdMiddleware() fiber.Handler {
 		roleId := c.Get("roleId")
 		if roleId == "" {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "UserId header is required",
+				"error": "roleId header is required",
 			})
 		}
 		c.Locals("roleId", roleId)

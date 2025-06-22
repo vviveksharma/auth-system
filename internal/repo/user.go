@@ -46,7 +46,7 @@ func (ur *UserRepository) GetUserDetails(id uuid.UUID) (userDetails *models.DBUs
 		return nil, transaction.Error
 	}
 	defer transaction.Rollback()
-	user := transaction.First(&userDetails, models.DBUser{
+	user := transaction.First(&userDetails, &models.DBUser{
 		Id: id,
 	})
 	if user.Error != nil {

@@ -110,7 +110,7 @@ func (h *Handler) UpdateUserDetails(ctx *fiber.Ctx) error {
 }
 
 func (h *Handler) GetUserByIdDetails(ctx *fiber.Ctx) error {
-	userId := ctx.Locals("userId").(string)
+	userId := ctx.Params("id")
 	resp, err := h.UserService.GetUserById(userId)
 	if err != nil {
 		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
