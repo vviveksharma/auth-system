@@ -1,7 +1,7 @@
 # Dockerfile
 
 # Stage 1: Build the Golang binary
-FROM golang:latest AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
