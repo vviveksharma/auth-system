@@ -26,14 +26,22 @@ func Init() {
 	//Create Roles in the db
 	initsetup.InitRoles()
 
+	
 	userService, err := services.NewUserService()
 	if err != nil {
-		log.Println("error while starting the user-service: ", err)
+		log.Fatalln("error while starting the user-service: ", err)
 	}
-	handler, err := controllers.NewHandler(userService)
+	roleService, err := services.NewRoleService()
 	if err != nil {
-		log.Println("error while starting the handler: ", err)
+		log.Fatalln("error while starting the user-service: ", err)
 	}
+
+	handler, err := controllers.NewHandler(userService, roleService)
+	if err != nil {
+		log.Fatalln("error while starting the handler: ", err)
+	}
+
+	//Starting the server
 	routes.Routes(app, handler)
 	err = app.Listen(":8080")
 	if err != nil {

@@ -7,17 +7,17 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
-func CraeteJWT(userId string) (string, error) {
+func CraeteJWT(userId string, roleId string) (string, error) {
 
-	expirationTime := time.Now().Add(30 * time.Minute)
+	expirationTime := time.Now().Add(3 * time.Minute)
 
 	// Create claims
 	claims := jwt.MapClaims{
 		"user_id": userId,
+		"role_id": roleId,
 		"exp":     expirationTime.Unix(),
 	}
 
-	// Create token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	secret := os.Getenv("JWT_SECRET")
@@ -25,6 +25,5 @@ func CraeteJWT(userId string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	return tokenString, nil
 }

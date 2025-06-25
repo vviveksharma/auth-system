@@ -41,10 +41,10 @@ func (*DBRoles) BeforeCreate(tx *gorm.DB) error {
 }
 
 type DBLogin struct {
-	Id      uuid.UUID `gorm:"primaryKey,column:id"`
-	UserId  uuid.UUID `json:"user_id"`
-	LoginId uuid.UUID `json:"login_id"`
-	JWT     string    `json:"jwt"`
+	Id     uuid.UUID `gorm:"primaryKey,column:id"`
+	UserId uuid.UUID `json:"user_id"`
+	RoleId uuid.UUID `json:"role_id"`
+	JWT    string    `json:"jwt"`
 }
 
 func (DBLogin) TableName() string {

@@ -35,7 +35,7 @@ auth-system/
 ```
 
 
-##### Currently adding the insecure cockrochDB need to make it secure + TLS 
+##### Currently adding the insecure cockrochDB will be makeing it secure + TLS 
 #### Add the 4 roles user, guest, admin, moderator
 
 ```
