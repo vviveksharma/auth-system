@@ -11,8 +11,10 @@ func Routes(app *fiber.App, h *controllers.Handler) {
 	auth := app.Group("/auth")
 	user := app.Group("/user")
 	role := app.Group("/roles")
-	//Routes
+	
 	auth.Post("/register", h.CreateUser)
+	auth.Post("/login", h.LoginUser)
+
 	user.Get("/me", middlewares.ExtractHeadersMiddleware(), h.GetUserDetails)
 	user.Put("/me", middlewares.ExtractHeadersMiddleware(), h.UpdateUserDetails)
 	user.Get("/:id", middlewares.ExtractRoleIdMiddleware(), h.GetUserByIdDetails)

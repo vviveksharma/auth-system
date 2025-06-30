@@ -9,12 +9,14 @@ import (
 type Handler struct {
 	UserService services.UserService
 	RoleService services.RoleService
+	AuthService services.AuthService
 }
 
-func NewHandler(userService services.UserService, roleService services.RoleService) (*Handler, error) {
+func NewHandler(userService services.UserService, roleService services.RoleService, authservice services.AuthService) (*Handler, error) {
 	return &Handler{
 		UserService: userService,
 		RoleService: roleService,
+		AuthService: authservice,
 	}, nil
 }
 

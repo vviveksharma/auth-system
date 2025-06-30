@@ -12,15 +12,15 @@ import (
 
 // Predefined role IDs
 var (
-	AdminId      = uuid.MustParse("f47ac10b-58cc-4372-a567-0e02b2c3d479")
-	UserId       = uuid.MustParse("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
-	GuestId      = uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
-	ModeratorId  = uuid.MustParse("1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed")
+	AdminId       = uuid.MustParse("f47ac10b-58cc-4372-a567-0e02b2c3d479")
+	UserId        = uuid.MustParse("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
+	GuestId       = uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
+	ModeratorId   = uuid.MustParse("1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed")
 	requiredRoles = []models.DBRoles{
-		{Role: "Admin", RoleId: AdminId},
-		{Role: "User", RoleId: UserId},
-		{Role: "Guest", RoleId: GuestId},
-		{Role: "Moderator", RoleId: ModeratorId},
+		{Role: "Admin", RoleId: AdminId, RoleType: "default"},
+		{Role: "User", RoleId: UserId, RoleType: "default"},
+		{Role: "Guest", RoleId: GuestId, RoleType: "default"},
+		{Role: "Moderator", RoleId: ModeratorId, RoleType: "default"},
 	}
 )
 
@@ -30,7 +30,7 @@ func InitRoles() {
 	if err != nil {
 		log.Fatal("error checking roles existence: ", err)
 	}
-	
+
 	if exist {
 		log.Println("roles already exist - skipping creation")
 		return
@@ -43,11 +43,11 @@ func InitRoles() {
 		}
 		return nil
 	})
-	
+
 	if err != nil {
 		log.Fatal("error creating roles: ", err)
 	}
-	
+
 	log.Println("roles created successfully")
 }
 func CheckRolesExist(db *gorm.DB) (bool, error) {
@@ -58,11 +58,11 @@ func CheckRolesExist(db *gorm.DB) (bool, error) {
 	}
 
 	leng := len(requiredRoles)
-	
+
 	if count >= int64(leng) {
 		return true, nil
 	}
-	
+
 	for _, role := range requiredRoles {
 		var existing models.DBRoles
 		err := db.Where("role_id = ?", role.RoleId).First(&existing).Error
@@ -73,6 +73,6 @@ func CheckRolesExist(db *gorm.DB) (bool, error) {
 			return false, err
 		}
 	}
-	
+
 	return true, nil
 }

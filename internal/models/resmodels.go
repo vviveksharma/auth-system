@@ -31,3 +31,7 @@ type AssignRoleResponse struct {
 type ListAllRolesResponse struct {
 	Name string `json:"name"`
 }
+
+type UserLoginResponse struct {
+	JWT string `json:"jwt"`
+}

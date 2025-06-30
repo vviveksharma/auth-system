@@ -26,17 +26,20 @@ func Init() {
 	//Create Roles in the db
 	initsetup.InitRoles()
 
-	
 	userService, err := services.NewUserService()
 	if err != nil {
 		log.Fatalln("error while starting the user-service: ", err)
 	}
 	roleService, err := services.NewRoleService()
 	if err != nil {
-		log.Fatalln("error while starting the user-service: ", err)
+		log.Fatalln("error while starting the role-service: ", err)
+	}
+	authService, err := services.NewAuthService()
+	if err != nil {
+		log.Fatalln("error while starting the auth-service: ", err)
 	}
 
-	handler, err := controllers.NewHandler(userService, roleService)
+	handler, err := controllers.NewHandler(userService, roleService, authService)
 	if err != nil {
 		log.Fatalln("error while starting the handler: ", err)
 	}

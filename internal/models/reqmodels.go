@@ -24,3 +24,9 @@ type UpdateUserRequest struct {
 type AssignRoleRequest struct {
 	Role string `json:"role"`
 }
+
+type UserLoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	Role     string `json:"role"`
+}

@@ -25,9 +25,10 @@ func (*DBUser) BeforeCreate(tx *gorm.DB) error {
 }
 
 type DBRoles struct {
-	Id     uuid.UUID `gorm:"primaryKey,column:id"`
-	Role   string    `json:"role"`
-	RoleId uuid.UUID `json:"role_id"`
+	Id       uuid.UUID `gorm:"primaryKey,column:id"`
+	Role     string    `json:"role"`
+	RoleId   uuid.UUID `json:"role_id"`
+	RoleType string    `json:"role_type"`
 }
 
 func (DBRoles) TableName() string {
