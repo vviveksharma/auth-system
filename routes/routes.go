@@ -11,7 +11,7 @@ func Routes(app *fiber.App, h *controllers.Handler) {
 	auth := app.Group("/auth")
 	user := app.Group("/user")
 	role := app.Group("/roles")
-	
+
 	auth.Post("/register", h.CreateUser)
 	auth.Post("/login", h.LoginUser)
 
@@ -21,4 +21,5 @@ func Routes(app *fiber.App, h *controllers.Handler) {
 	user.Put("/:id/roles", middlewares.ExtractRoleIdMiddleware(), h.AssignUserRole)
 
 	role.Get("/", middlewares.ExtractRoleIdMiddleware(), h.ListAllRoles)
+	role.Get("/verify", h.VerifyRole)
 }

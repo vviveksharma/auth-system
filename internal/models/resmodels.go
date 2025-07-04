@@ -35,3 +35,7 @@ type ListAllRolesResponse struct {
 type UserLoginResponse struct {
 	JWT string `json:"jwt"`
 }
+
+type VerifyRoleResponse struct {
+	Message bool `json:"message"`
+}

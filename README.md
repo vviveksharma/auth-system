@@ -53,6 +53,7 @@ Roles
             /roles	                    GET	    List all roles (e.g., user, admin)	admin
             /roles	                    POST	Create custom role (e.g., support_agent)	admin
             /roles/:role/permissions	PUT	    Update permissions for a role	admin
+            /roles/verify               GET     To check if the role matches with the roleId
 Resources	
             /posts	                    GET	    List public posts	guest
             /posts	                    POST	Create a post	user+ roles

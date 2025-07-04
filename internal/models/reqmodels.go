@@ -30,3 +30,8 @@ type UserLoginRequest struct {
 	Password string `json:"password"`
 	Role     string `json:"role"`
 }
+
+type VerifyRoleRequest struct {
+	RoleName string `json:"role_name"`
+	RoleId   string `json:"role_id"`
+}

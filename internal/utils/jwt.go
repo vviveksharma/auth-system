@@ -7,14 +7,20 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
-func CraeteJWT(userId string, roleId string) (string, error) {
+func CraeteJWT(userId string, roleId string, tokenType string) (string, error) {
 
-	expirationTime := time.Now().Add(3 * time.Minute)
+	var expirationTime time.Time
 
-	// Create claims
+	if tokenType == "access" {
+		expirationTime = time.Now().Add(3 * time.Minute)
+	} else {
+		expirationTime = time.Now().Add(30 * time.Minute)
+	}
+
 	claims := jwt.MapClaims{
 		"user_id": userId,
 		"role_id": roleId,
+		"type":    tokenType,
 		"exp":     expirationTime.Unix(),
 	}
 

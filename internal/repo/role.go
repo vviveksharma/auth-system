@@ -51,5 +51,5 @@ func (r *RoleRepository) FindRoleId(roleName string) (roleId uuid.UUID, err erro
 	if result.Error != nil {
 		return uuid.Nil, result.Error
 	}
-	return roles.Id, nil
+	return roles.RoleId, nil
 }

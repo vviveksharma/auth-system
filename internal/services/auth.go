@@ -1,6 +1,8 @@
 package services
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/vviveksharma/auth/db"
 	"github.com/vviveksharma/auth/internal/models"
@@ -92,7 +94,22 @@ func (a *Auth) LoginUser(req *models.UserLoginRequest) (res *models.UserLoginRes
 		}
 	}
 
-	jwt, err := utils.CraeteJWT(userDetails.Id.String(), roleId.String())
+	loginDetails, err := a.LoginRepo.GetUserById(userDetails.Id.String())
+	if err != nil && err.Error() != "record not found" {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while finding the logindetails of the user: " + err.Error(),
+		}
+	}
+	var tokenType string
+
+	if loginDetails == nil {
+		tokenType = "access"
+	} else {
+		tokenType = "refresh"
+	}
+
+	jwt, err := utils.CraeteJWT(userDetails.Id.String(), roleId.String(), tokenType)
 	if err != nil {
 		return nil, &dbmodels.ServiceResponse{
 			Code:    500,
@@ -101,14 +118,17 @@ func (a *Auth) LoginUser(req *models.UserLoginRequest) (res *models.UserLoginRes
 	}
 
 	lerr := a.LoginRepo.Create(&dbmodels.DBLogin{
-		UserId: userDetails.Id,
-		RoleId: roleId,
-		JWT:    jwt,
+		UserId:    userDetails.Id,
+		RoleId:    roleId,
+		Token:     jwt,
+		IssuedAt:  time.Now(),
+		ExpiresAt: time.Now().Add(30 * time.Minute),
+		Revoked:   false,
 	})
 	if lerr != nil {
 		return nil, &dbmodels.ServiceResponse{
-			Code: 500,
-			Message: "error while creating a login entry: "+ lerr.Error(),
+			Code:    500,
+			Message: "error while creating a login entry: " + lerr.Error(),
 		}
 	}
 

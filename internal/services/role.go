@@ -1,6 +1,8 @@
 package services
 
 import (
+	"github.com/gofiber/fiber/v2/log"
+	"github.com/google/uuid"
 	"github.com/vviveksharma/auth/db"
 	"github.com/vviveksharma/auth/internal/models"
 	"github.com/vviveksharma/auth/internal/repo"
@@ -9,6 +11,7 @@ import (
 
 type RoleService interface {
 	ListAllRoles() (response []*models.ListAllRolesResponse, err error)
+	VerifyRole(req *models.VerifyRoleRequest) (response *models.VerifyRoleResponse, err error)
 }
 
 type Role struct {
@@ -48,4 +51,31 @@ func (r *Role) ListAllRoles() (response []*models.ListAllRolesResponse, err erro
 		response = append(response, &res)
 	}
 	return response, nil
+}
+
+func (r *Role) VerifyRole(req *models.VerifyRoleRequest) (response *models.VerifyRoleResponse, err error) {
+	roleDetails, err := r.RoleRepo.FindRoleId(req.RoleName)
+	if err != nil {
+		if err.Error() == "record not found" {
+			return nil, &dbmodels.ServiceResponse{
+				Code: 404,
+				Message: "No role with this name exists",
+			}
+		} else {
+			return nil, &dbmodels.ServiceResponse{
+				Code: 404,
+				Message: "error while finding the role:" + err.Error(),
+			}
+		}
+	}
+	log.Info("the roleId: ", roleDetails)
+	if roleDetails != uuid.MustParse(req.RoleId) {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    404,
+			Message: "Role name and ID do not match. Please provide the correct role ID and role name.",
+		}
+	}
+	return &models.VerifyRoleResponse{
+		Message: true,
+	}, nil
 }

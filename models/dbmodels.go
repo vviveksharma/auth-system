@@ -1,6 +1,8 @@
 package models
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"gorm.io/gorm"
@@ -42,10 +44,13 @@ func (*DBRoles) BeforeCreate(tx *gorm.DB) error {
 }
 
 type DBLogin struct {
-	Id     uuid.UUID `gorm:"primaryKey,column:id"`
-	UserId uuid.UUID `json:"user_id"`
-	RoleId uuid.UUID `json:"role_id"`
-	JWT    string    `json:"jwt"`
+	Id        uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
+	UserId    uuid.UUID `gorm:"type:uuid;not null"`
+	RoleId    uuid.UUID `gorm:"type:uuid;not null"`
+	Token     string    `gorm:"type:text;not null"`
+	IssuedAt  time.Time `gorm:"autoCreateTime"`
+	ExpiresAt time.Time `gorm:"not null"`
+	Revoked   bool      `gorm:"default:false;not null"`
 }
 
 func (DBLogin) TableName() string {
