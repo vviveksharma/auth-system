@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/vviveksharma/auth/internal/models"
 	dbmodels "github.com/vviveksharma/auth/models"
 )
@@ -41,6 +42,25 @@ func (h *Handler) LoginUser(ctx *fiber.Ctx) error {
 	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
 		Code:    200,
 		Message: "The JWT token is as follow",
+		Data:    resp,
+	})
+}
+
+func (h *Handler) RefreshToken(ctx *fiber.Ctx) error {
+	claims := ctx.Locals("authClaims").(jwt.MapClaims)
+	userId := claims["user_id"]
+	roleId := claims["role_id"]
+	resp, err := h.AuthService.RefreshToken(userId.(string), roleId.(string))
+	if err != nil {
+		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(err)
+		} else {
+			return ctx.JSON(500, "an unexpected error occurred")
+		}
+	}
+	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
+		Code:    200,
+		Message: "The JWT token is refreshed",
 		Data:    resp,
 	})
 }

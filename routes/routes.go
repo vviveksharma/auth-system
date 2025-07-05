@@ -14,6 +14,7 @@ func Routes(app *fiber.App, h *controllers.Handler) {
 
 	auth.Post("/register", h.CreateUser)
 	auth.Post("/login", h.LoginUser)
+	auth.Put("/refresh", middlewares.JWTMiddleware(), h.RefreshToken)
 
 	user.Get("/me", middlewares.ExtractHeadersMiddleware(), h.GetUserDetails)
 	user.Put("/me", middlewares.ExtractHeadersMiddleware(), h.UpdateUserDetails)

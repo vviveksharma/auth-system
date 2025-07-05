@@ -13,6 +13,7 @@ import (
 
 type AuthService interface {
 	LoginUser(req *models.UserLoginRequest) (res *models.UserLoginResponse, err error)
+	RefreshToken(id string, roleId string) (res *models.UserLoginResponse, err error)
 }
 
 type Auth struct {
@@ -117,6 +118,19 @@ func (a *Auth) LoginUser(req *models.UserLoginRequest) (res *models.UserLoginRes
 		}
 	}
 
+	if tokenType == "refresh" {
+		err := a.LoginRepo.UpdateUserToken(loginDetails.Id.String(), jwt)
+		if err != nil {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    500,
+				Message: "error while creating a JWT: " + err.Error(),
+			}
+		}
+		return &models.UserLoginResponse{
+			JWT: jwt,
+		}, nil
+	}
+
 	lerr := a.LoginRepo.Create(&dbmodels.DBLogin{
 		UserId:    userDetails.Id,
 		RoleId:    roleId,
@@ -132,6 +146,33 @@ func (a *Auth) LoginUser(req *models.UserLoginRequest) (res *models.UserLoginRes
 		}
 	}
 
+	return &models.UserLoginResponse{
+		JWT: jwt,
+	}, nil
+}
+
+func (a *Auth) RefreshToken(id string, roleId string) (res *models.UserLoginResponse, err error) {
+	loginDetails, err := a.LoginRepo.GetUserById(id)
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while fetching then login entry: " + err.Error(),
+		}
+	}
+	jwt, err := utils.CraeteJWT(loginDetails.Id.String(), roleId, "refresh")
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while creating a JWT: " + err.Error(),
+		}
+	}
+	err = a.LoginRepo.UpdateUserToken(loginDetails.Id.String(), jwt)
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while refreshing the token: " + err.Error(),
+		}
+	}
 	return &models.UserLoginResponse{
 		JWT: jwt,
 	}, nil

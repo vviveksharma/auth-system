@@ -1,6 +1,8 @@
 package repo
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/vviveksharma/auth/models"
 	"gorm.io/gorm"
@@ -9,6 +11,7 @@ import (
 type LoginRepositoryInterface interface {
 	Create(req *models.DBLogin) error
 	GetUserById(id string) (loginDetails *models.DBLogin, err error)
+	UpdateUserToken(id string, jwt string) error
 }
 
 type LoginRepository struct {
@@ -47,4 +50,26 @@ func (ur *LoginRepository) GetUserById(id string) (loginDetails *models.DBLogin,
 	}
 	transaction.Commit()
 	return loginDetails, nil
+}
+
+func (ur *LoginRepository) UpdateUserToken(id string, jwt string) error {
+	transaction := ur.DB.Begin()
+	if transaction.Error != nil {
+		return transaction.Error
+	}
+	defer transaction.Rollback()
+	var loginDetails *models.DBLogin
+	login := transaction.Where("id = ?", uuid.MustParse(id)).First(&loginDetails)
+	if login.Error != nil {
+		return login.Error
+	}
+	if err := transaction.Model(&models.DBLogin{}).Where("id = ?", uuid.MustParse(id)).Updates(map[string]interface{}{
+		"token":      jwt,
+		"issued_at":  time.Now(),
+		"expires_at": time.Now().Add(30 * time.Minute),
+	}).Error; err != nil {
+		return err
+	}
+	transaction.Commit()
+	return nil
 }
