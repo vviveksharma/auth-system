@@ -26,13 +26,13 @@ func (h *Handler) VerifyRole(ctx *fiber.Ctx) error {
 	var req *models.VerifyRoleRequest
 	err := ctx.BodyParser(&req)
 	if err != nil {
-		return &fiber.Error{
+		return &dbmodels.ServiceResponse{
 			Code:    fiber.StatusBadGateway,
 			Message: "error while parsing the requestBody: " + err.Error(),
 		}
 	}
 	if req.RoleId == "" || req.RoleName == "" {
-		return &fiber.Error{
+		return &dbmodels.ServiceResponse{
 			Code:    404,
 			Message: "either the roleId or rolename is missing",
 		}

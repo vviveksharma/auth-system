@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"github.com/vviveksharma/auth/db"
 	"github.com/vviveksharma/auth/internal/models"
 	"github.com/vviveksharma/auth/internal/repo"
@@ -17,17 +18,19 @@ type AuthService interface {
 }
 
 type Auth struct {
-	UserRepo  repo.UserRepositoryInterface
-	LoginRepo repo.LoginRepositoryInterface
-	RoleRepo  repo.RoleRepositoryInterface
+	UserRepo    repo.UserRepositoryInterface
+	LoginRepo   repo.LoginRepositoryInterface
+	RoleRepo    repo.RoleRepositoryInterface
+	RedisClient *redis.Client
 }
 
-func NewAuthService() (AuthService, error) {
+func NewAuthService(client *redis.Client) (AuthService, error) {
 	ser := &Auth{}
 	err := ser.SetupRepo()
 	if err != nil {
 		return nil, err
 	}
+	ser.RedisClient = client
 	return ser, nil
 }
 

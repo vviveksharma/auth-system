@@ -14,19 +14,19 @@ func (h *Handler) LoginUser(ctx *fiber.Ctx) error {
 	err := ctx.BodyParser(&req)
 	if err != nil {
 		log.Println("Error in parsing the request Body" + err.Error())
-		return &fiber.Error{
+		return &dbmodels.ServiceResponse{
 			Code:    fiber.StatusBadGateway,
 			Message: "error while parsing the requestBody: " + err.Error(),
 		}
 	}
 	if req.Email == "" || req.Password == "" {
-		return &fiber.Error{
+		return &dbmodels.ServiceResponse{
 			Code:    fiber.StatusBadRequest,
 			Message: "Please check your credentials",
 		}
 	}
 	if req.Role == "" {
-		return &fiber.Error{
+		return &dbmodels.ServiceResponse{
 			Code:    fiber.StatusBadRequest,
 			Message: "role should be provided",
 		}

@@ -14,14 +14,14 @@ func (h *Handler) CreateUser(ctx *fiber.Ctx) error {
 	err := ctx.BodyParser(&req)
 	if err != nil {
 		log.Println("Error in parsing the request Body" + err.Error())
-		return &fiber.Error{
+		return &dbmodels.ServiceResponse{
 			Code:    fiber.StatusBadGateway,
 			Message: "error while parsing the requestBody: " + err.Error(),
 		}
 	}
 	if req.Email == "" || req.Name == "" || req.Password == "" {
 		log.Println("the requestBody: ", req)
-		return &fiber.Error{
+		return &dbmodels.ServiceResponse{
 			Code:    fiber.StatusBadRequest,
 			Message: "either name or type is missing in the request Body",
 		}
@@ -66,7 +66,7 @@ func (h *Handler) UpdateUserDetails(ctx *fiber.Ctx) error {
 	err := ctx.BodyParser(&req)
 	if err != nil {
 		log.Println("Error in parsing the request Body" + err.Error())
-		return &fiber.Error{
+		return &dbmodels.ServiceResponse{
 			Code:    fiber.StatusBadGateway,
 			Message: "error while parsing the requestBody: " + err.Error(),
 		}
@@ -109,7 +109,7 @@ func (h *Handler) AssignUserRole(ctx *fiber.Ctx) error {
 	err := ctx.BodyParser(&req)
 	if err != nil {
 		log.Println("Error in parsing the request Body" + err.Error())
-		return &fiber.Error{
+		return &dbmodels.ServiceResponse{
 			Code:    fiber.StatusBadGateway,
 			Message: "error while parsing the requestBody: " + err.Error(),
 		}

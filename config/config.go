@@ -6,10 +6,12 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
+	"github.com/vviveksharma/auth/cache"
 	"github.com/vviveksharma/auth/db"
 	"github.com/vviveksharma/auth/initsetup"
 	"github.com/vviveksharma/auth/internal/controllers"
 	"github.com/vviveksharma/auth/internal/services"
+	"github.com/vviveksharma/auth/limiter"
 	"github.com/vviveksharma/auth/routes"
 )
 
@@ -23,8 +25,13 @@ func Init() {
 
 	db.ConnectDB()
 
+	//Connecting to cache
+	client := cache.ConnectCache()
+
 	//Create Roles in the db
 	initsetup.InitRoles()
+
+	app.Use(limiter.RateLimiter(client))
 
 	userService, err := services.NewUserService()
 	if err != nil {
@@ -34,7 +41,7 @@ func Init() {
 	if err != nil {
 		log.Fatalln("error while starting the role-service: ", err)
 	}
-	authService, err := services.NewAuthService()
+	authService, err := services.NewAuthService(client)
 	if err != nil {
 		log.Fatalln("error while starting the auth-service: ", err)
 	}
@@ -45,7 +52,7 @@ func Init() {
 	}
 
 	//Starting the server
-	routes.Routes(app, handler)
+	routes.Routes(app, handler, client)
 	err = app.Listen(":8080")
 	if err != nil {
 		log.Fatal("error while starting the server: ", err)

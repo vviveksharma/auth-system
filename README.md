@@ -36,7 +36,8 @@ auth-system/
 
 
 ##### Currently adding the insecure cockrochDB will be makeing it secure + TLS 
-#### Add the 4 roles user, guest, admin, moderator
+#### Add Response Structure to every error response
+
 
 ```
 Category	Endpoint	                Method	Description	Who Can Access?
