@@ -45,7 +45,6 @@ Auth
             /auth/register	            POST	Register new user (auto-assign user role)	guest
             /auth/login	                POST	Generate JWT token	guest
             /auth/refresh	            POST	Refresh expired JWT	user, moderator, admin 
-            /auth/verify                GET     Verify Token is still valid or not admin
 User	
             /users/me	                GET	    Get current user’s profile	user+ roles
             /users/me	                PUT	    Update own profile	user 
