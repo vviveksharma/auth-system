@@ -62,3 +62,28 @@ func (*DBLogin) BeforeCreate(tx *gorm.DB) error {
 	tx.Statement.SetColumn("Id", uuid)
 	return nil
 }
+
+type DBTenant struct {
+	Id       uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
+	Name     string    `json:"name"`
+	Email    string    `json:"email"`
+	Campany  string    `json:"campany"`
+	Password string    `json:"password"`
+}
+
+func (DBTenant) TableName() string {
+	return "tenant_tbl"
+}
+
+func (*DBTenant) BeforeCreate(tx *gorm.DB) error {
+	uuid := uuid.New().String()
+	tx.Statement.SetColumn("Id", uuid)
+	return nil
+}
+
+type DbToken struct {
+	Id        uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
+	TenantId  uuid.UUID `gorm:"type:uuid;not null"`
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `gorm:"not null"`
+}

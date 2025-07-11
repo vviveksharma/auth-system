@@ -39,3 +39,11 @@ type UserLoginResponse struct {
 type VerifyRoleResponse struct {
 	Message bool `json:"message"`
 }
+
+type CreateTenantResponse struct {
+	Message string `json:"message"`
+}
+
+type LoginTenantResponse struct {
+	Token string `json:"token"p`
+}

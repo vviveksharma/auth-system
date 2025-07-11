@@ -39,6 +39,7 @@ auth-system/
 #### Add Response Structure to every error response
 
 
+
 ```
 Category	Endpoint	                Method	Description	Who Can Access?
 Auth	
@@ -64,3 +65,9 @@ Admin
             /admin/stats	            GET	    Get RBAC usage statistics	admin
 ```
 
+### Feature in the Development
+- Add refresh xpired token in the cache ( adding the logic for cache)
+- Create a features docs so that people could see and use that
+- Create a swagger docs
+- Route and role tables
+- 
