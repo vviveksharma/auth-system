@@ -1,6 +1,8 @@
 package services
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/vviveksharma/auth/db"
 	"github.com/vviveksharma/auth/internal/models"
@@ -8,10 +10,14 @@ import (
 	dbmodels "github.com/vviveksharma/auth/models"
 )
 
-type TenantService interface{}
+type TenantService interface {
+	CreateTenant(req *models.CreateTenantRequest) (resp *models.CreateTenantResponse, err error)
+	LoginTenant(req *models.LoginTenantRequest) (resp *models.LoginTenantResponse, err error)
+}
 
 type Tenant struct {
 	TenantRepo repo.TenantRepositoryInterface
+	TokenRepo  repo.TokenRepositoryInterface
 }
 
 func NewTenantService() (TenantService, error) {
@@ -30,6 +36,11 @@ func (t *Tenant) SetupRepo() error {
 		return err
 	}
 	t.TenantRepo = tenant
+	token, err := repo.NewTokenRepository(db.DB)
+	if err != nil {
+		return err
+	}
+	t.TokenRepo = token
 	return nil
 }
 
@@ -79,8 +90,52 @@ func (t *Tenant) LoginTenant(req *models.LoginTenantRequest) (resp *models.Login
 			Message: "invalid email or password",
 		}
 	}
-	token := uuid.New()
+	token := uuid.New().String()
+	terr := t.TokenRepo.CreateToken(&dbmodels.DBToken{
+		TenantId:  tenantDetails.Id,
+		Token:     token,
+		ExpiresAt: time.Now().Add(120 * time.Minute),
+		IsActive:  true,
+	})
+	if terr != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while creating a token: " + terr.Error(),
+		}
+	}
 	return &models.LoginTenantResponse{
-		Token: token.String(),
+		Token: token,
+	}, nil
+}
+
+func (t *Tenant) ListTokens(token string) ([]*string, error) {
+	tenantId, err := t.TokenRepo.GetTenantUsingToken(token)
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{}
+	}
+	dbTokens, err := t.TokenRepo.ListTokens(*tenantId)
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{}
+	}
+	var tokens []*string
+	for _, dbToken := range dbTokens {
+		if !dbToken.IsActive {
+			continue
+		}
+		tokens = append(tokens, &dbToken.Token)
+	}
+	return tokens, nil
+}
+
+func (t *Tenant) RevokeToken(token string) (resp *models.RevokeTokenResponse, err error) {
+	err = t.TokenRepo.RevokeToken(token)
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while revoking the token: " + err.Error(),
+		}
+	}
+	return &models.RevokeTokenResponse{
+		Message: "Token revoked successfully.",
 	}, nil
 }

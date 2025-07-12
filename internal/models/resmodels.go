@@ -45,5 +45,10 @@ type CreateTenantResponse struct {
 }
 
 type LoginTenantResponse struct {
-	Token string `json:"token"p`
+	Token string `json:"token"`
+}
+
+type RevokeTokenResponse struct {
+	Message string `json:"message"`
+
 }

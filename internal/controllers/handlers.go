@@ -7,22 +7,24 @@ import (
 )
 
 type Handler struct {
-	UserService services.UserService
-	RoleService services.RoleService
-	AuthService services.AuthService
+	UserService   services.UserService
+	RoleService   services.RoleService
+	AuthService   services.AuthService
+	TenantService services.TenantService
 }
 
-func NewHandler(userService services.UserService, roleService services.RoleService, authservice services.AuthService) (*Handler, error) {
+func NewHandler(userService services.UserService, roleService services.RoleService, authService services.AuthService, tenantService services.TenantService) (*Handler, error) {
 	return &Handler{
-		UserService: userService,
-		RoleService: roleService,
-		AuthService: authservice,
+		UserService:   userService,
+		RoleService:   roleService,
+		AuthService:   authService,
+		TenantService: tenantService,
 	}, nil
 }
 
 func (h *Handler) Welcome(ctx *fiber.Ctx) error {
 	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
 		Code:    200,
-		Message: "Auth system is working",
+		Message: "Auth system is up and working",
 	})
 }

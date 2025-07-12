@@ -45,8 +45,12 @@ func Init() {
 	if err != nil {
 		log.Fatalln("error while starting the auth-service: ", err)
 	}
+	tenantService, err := services.NewTenantService()
+	if err != nil {
+		log.Fatalln("error while starting the tenant-service: ", err)
+	}
 
-	handler, err := controllers.NewHandler(userService, roleService, authService)
+	handler, err := controllers.NewHandler(userService, roleService, authService, tenantService)
 	if err != nil {
 		log.Fatalln("error while starting the handler: ", err)
 	}
