@@ -28,4 +28,6 @@ func Routes(app *fiber.App, h *controllers.Handler, client *redis.Client) {
 
 	tenant.Post("/", h.CreateTenant)
 	tenant.Post("/login", h.LoginTenant)
+	tenant.Get("/tokens", middlewares.TenantMiddleWare(), h.ListTokens)
+	tenant.Put("/tokens/:id", middlewares.TenantMiddleWare(), h.RevokeToken)
 }

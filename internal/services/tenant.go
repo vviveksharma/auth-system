@@ -12,12 +12,15 @@ import (
 
 type TenantService interface {
 	CreateTenant(req *models.CreateTenantRequest) (resp *models.CreateTenantResponse, err error)
-	LoginTenant(req *models.LoginTenantRequest) (resp *models.LoginTenantResponse, err error)
+	LoginTenant(req *models.LoginTenantRequest, ip string) (resp *models.LoginTenantResponse, err error)
+	ListTokens(token string) ([]*string, error)
+	RevokeToken(token string) (resp *models.RevokeTokenResponse, err error)
 }
 
 type Tenant struct {
-	TenantRepo repo.TenantRepositoryInterface
-	TokenRepo  repo.TokenRepositoryInterface
+	TenantRepo      repo.TenantRepositoryInterface
+	TokenRepo       repo.TokenRepositoryInterface
+	TenantLoginRepo repo.TenantLoginRepositoryInterface
 }
 
 func NewTenantService() (TenantService, error) {
@@ -41,12 +44,17 @@ func (t *Tenant) SetupRepo() error {
 		return err
 	}
 	t.TokenRepo = token
+	tenantLogin, err := repo.NewTenantLoginRepository(db.DB)
+	if err != nil {
+		return err
+	}
+	t.TenantLoginRepo = tenantLogin
 	return nil
 }
 
 func (t *Tenant) CreateTenant(req *models.CreateTenantRequest) (resp *models.CreateTenantResponse, err error) {
 	_, err = t.TenantRepo.GetUserByEmail(req.Email)
-	if err != nil {
+	if err != nil && err.Error() != "record not found" {
 		return nil, &dbmodels.ServiceResponse{
 			Code:    500,
 			Message: "error while checking the tenant details: " + err.Error(),
@@ -69,7 +77,7 @@ func (t *Tenant) CreateTenant(req *models.CreateTenantRequest) (resp *models.Cre
 	}, nil
 }
 
-func (t *Tenant) LoginTenant(req *models.LoginTenantRequest) (resp *models.LoginTenantResponse, err error) {
+func (t *Tenant) LoginTenant(req *models.LoginTenantRequest, ip string) (resp *models.LoginTenantResponse, err error) {
 	tenantDetails, err := t.TenantRepo.GetUserByEmail(req.Email)
 	if err != nil {
 		if err.Error() == "record not found" {
@@ -101,6 +109,18 @@ func (t *Tenant) LoginTenant(req *models.LoginTenantRequest) (resp *models.Login
 		return nil, &dbmodels.ServiceResponse{
 			Code:    500,
 			Message: "error while creating a token: " + terr.Error(),
+		}
+	}
+	tlerr := t.TenantLoginRepo.Create(&dbmodels.DBTenantLogin{
+		TenantId:  tenantDetails.Id,
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+		IsActive:  true,
+		IPAddress: ip,
+	})
+	if tlerr != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while creating tenant login: " + tlerr.Error(),
 		}
 	}
 	return &models.LoginTenantResponse{

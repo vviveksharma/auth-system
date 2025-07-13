@@ -2,9 +2,13 @@ package middlewares
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/vviveksharma/auth/db"
+	"github.com/vviveksharma/auth/internal/repo"
+	"github.com/vviveksharma/auth/models"
 )
 
 func ExtractHeadersMiddleware() fiber.Handler {
@@ -50,6 +54,34 @@ func JWTMiddleware() fiber.Handler {
 		}
 
 		c.Locals("authClaims", claims)
+		return c.Next()
+	}
+}
+
+func TenantMiddleWare() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		log.Println("Inside the middleware")
+		authHeader := c.Get("Authorization")
+		if authHeader == "" {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Missing token"})
+		}
+
+		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+		Newtoken, err := repo.NewTokenRepository(db.DB)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(models.ServiceResponse{
+				Code:    500,
+				Message: "error while connecting to db repositry",
+			})
+		}
+		log.Println(" the token string :", tokenStr)
+		resp, err := Newtoken.VerifyToken(tokenStr)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(err)
+		}
+		if resp {
+			c.Locals("token", tokenStr)
+		}
 		return c.Next()
 	}
 }

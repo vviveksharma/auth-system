@@ -56,7 +56,7 @@ func (h *Handler) LoginTenant(ctx *fiber.Ctx) error {
 			Message: "Email and password are required fields. Please provide both to proceed.",
 		})
 	}
-	resp, err := h.TenantService.LoginTenant(&req)
+	resp, err := h.TenantService.LoginTenant(&req, ctx.IP())
 	if err != nil {
 		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
@@ -68,5 +68,45 @@ func (h *Handler) LoginTenant(ctx *fiber.Ctx) error {
 		Code:    200,
 		Message: "",
 		Data:    resp,
+	})
+}
+
+func (h *Handler) ListTokens(ctx *fiber.Ctx) error {
+	token := ctx.Locals("token").(string)
+	resp, err := h.TenantService.ListTokens(token)
+	if err != nil {
+		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(err)
+		} else {
+			return ctx.JSON(500, "an unexpected error occurred"+err.Error())
+		}
+	}
+	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
+		Code:    200,
+		Message: "Tokens retrieved successfully.",
+		Data:    resp,
+	})
+}
+
+func (h *Handler) RevokeToken(ctx *fiber.Ctx) error {
+	token := ctx.Params("id")
+	if token == "" {
+		return ctx.Status(fiber.StatusBadRequest).JSON(dbmodels.ServiceResponse{
+			Code:    400,
+			Message: "token that needed to be revoked should not be empty",
+		})
+	}
+	resp, err := h.TenantService.RevokeToken(token)
+	if err != nil {
+		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(err)
+		} else {
+			return ctx.JSON(500, "an unexpected error occurred"+err.Error())
+		}
+	}
+	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
+		Code:    200,
+		Message: resp.Message,
+		Data:    nil,
 	})
 }

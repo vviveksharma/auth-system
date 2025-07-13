@@ -90,7 +90,7 @@ type DBToken struct {
 }
 
 func (DBToken) TableName() string {
-	return "tenant_tbl"
+	return "token_tbl"
 }
 
 func (*DBToken) BeforeCreate(tx *gorm.DB) error {
@@ -112,6 +112,23 @@ func (DBTenantLogin) TableName() string {
 }
 
 func (*DBTenantLogin) BeforeCreate(tx *gorm.DB) error {
+	uuid := uuid.New().String()
+	tx.Statement.SetColumn("Id", uuid)
+	return nil
+}
+
+type DBRouteRole struct {
+	Id       uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
+	TenantId uuid.UUID `gorm:"type:uuid;not null"`
+	RoleId   uuid.UUID `json:"role_id"`
+	Route    string    `json:"route"`
+}
+
+func (DBRouteRole) TableName() string {
+	return "route_role_tbl"
+}
+
+func (*DBRouteRole) BeforeCreate(tx *gorm.DB) error {
 	uuid := uuid.New().String()
 	tx.Statement.SetColumn("Id", uuid)
 	return nil
