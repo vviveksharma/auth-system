@@ -10,6 +10,7 @@ import (
 )
 
 type RoleRepositoryInterface interface {
+	CreateRole(req *models.DBRoles) error
 	GetAllRoles() ([]*models.DBRoles, error)
 	FindRoleId(roleName string) (roleId uuid.UUID, err error)
 }
@@ -67,4 +68,17 @@ func (r *RoleRepository) FindRoleId(roleName string) (roleId uuid.UUID, err erro
 	}
 	fmt.Printf("Successfully found roleId %s for roleName '%s'\n", roles.RoleId, roleName)
 	return roles.RoleId, nil
+}
+
+func (r *RoleRepository) CreateRole(req *models.DBRoles) error {
+	transaction := r.DB.Begin()
+	if transaction.Error != nil {
+		return transaction.Error
+	}
+	defer transaction.Rollback()
+	create := transaction.Create(&req)
+	if create.Error != nil {
+		return create.Error
+	}
+	return nil
 }

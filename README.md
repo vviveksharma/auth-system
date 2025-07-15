@@ -66,8 +66,9 @@ Admin
 ```
 
 ### Feature in the Development
-- Add refresh xpired token in the cache ( adding the logic for cache )
+- Add refresh expired token in the cache ( adding the logic for cache )
 - Create a features docs so that people could see and use that
 - Create a swagger docs
-- Route and role tables
-- Add the token verification middleware
+- Add the RLS rule for the tenant id
+- Add logic to print the custom role and system defined roles
+- Project Name is Guardrail or FlexAuth

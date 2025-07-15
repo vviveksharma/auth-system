@@ -47,7 +47,7 @@ type DBLogin struct {
 	Id        uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
 	UserId    uuid.UUID `gorm:"type:uuid;not null"`
 	RoleId    uuid.UUID `gorm:"type:uuid;not null"`
-	Token     string    `gorm:"type:text;not null"`
+	JWTToken  string    `gorm:"type:text;not null"`
 	IssuedAt  time.Time `gorm:"autoCreateTime"`
 	ExpiresAt time.Time `gorm:"not null"`
 	Revoked   bool      `gorm:"default:false;not null"`
@@ -118,10 +118,10 @@ func (*DBTenantLogin) BeforeCreate(tx *gorm.DB) error {
 }
 
 type DBRouteRole struct {
-	Id       uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
-	TenantId uuid.UUID `gorm:"type:uuid;not null"`
-	RoleId   uuid.UUID `json:"role_id"`
-	Route    string    `json:"route"`
+	Id       uuid.UUID      `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
+	TenantId uuid.UUID      `gorm:"type:uuid;not null"`
+	RoleId   pq.StringArray `gorm:"type:text[]" json:"roles"`
+	Route    string         `json:"route"`
 }
 
 func (DBRouteRole) TableName() string {

@@ -58,12 +58,12 @@ func (r *Role) VerifyRole(req *models.VerifyRoleRequest) (response *models.Verif
 	if err != nil {
 		if err.Error() == "record not found" {
 			return nil, &dbmodels.ServiceResponse{
-				Code: 404,
+				Code:    404,
 				Message: "No role with this name exists",
 			}
 		} else {
 			return nil, &dbmodels.ServiceResponse{
-				Code: 404,
+				Code:    404,
 				Message: "error while finding the role:" + err.Error(),
 			}
 		}
