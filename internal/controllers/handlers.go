@@ -25,6 +25,6 @@ func NewHandler(userService services.UserService, roleService services.RoleServi
 func (h *Handler) Welcome(ctx *fiber.Ctx) error {
 	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
 		Code:    200,
-		Message: "Auth system is up and working",
+		Message: "GuardRail is up and working",
 	})
 }
