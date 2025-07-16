@@ -52,3 +52,18 @@ func (rr *RouteRoleRepository) FindByRoute(route string, roleId uuid.UUID) (bool
 	}
 	return false, errors.New("the route associated with role not found")
 }
+
+func (rr *RouteRoleRepository) UpdateRouteRole(roleId string, route string) error {
+	transaction := rr.DB.Begin()
+	if transaction.Error != nil {
+		return transaction.Error
+	}
+	defer transaction.Rollback()
+	err := transaction.Model(&models.DBRouteRole{}).Where("route = ?", route).Updates(map[string]interface{}{
+		"roles" : []string{roleId},
+	})
+	if err.Error != nil {
+		return err.Error
+	}
+	return nil
+}

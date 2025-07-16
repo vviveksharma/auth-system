@@ -51,3 +51,25 @@ func (h *Handler) VerifyRole(ctx *fiber.Ctx) error {
 		Data:    resp,
 	})
 }
+
+func (h *Handler) CreateCustomRole(ctx *fiber.Ctx) error {
+	roleName := ctx.Params("role")
+	if roleName == "" {
+		return &dbmodels.ServiceResponse{
+			Code:    fiber.StatusBadRequest,
+			Message: "Role name parameter is missing or empty. Please provide a valid role name in the URL path parameter.",
+		}
+	}
+	resp, err := h.RoleService.CreateCustomRole(roleName)
+	if err != nil {
+		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(err)
+		} else {
+			return ctx.JSON(500, "an unexpected error occurred")
+		}
+	}
+	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
+		Code:    200,
+		Message: resp.Message,
+	})
+}

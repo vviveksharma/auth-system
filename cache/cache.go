@@ -8,48 +8,48 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func NewRedisClient(client *redis.Client) IRedisClient {
-	return &RedisClient{
+func NewCacheClient(client *redis.Client) ICacheClient {
+	return &CacheClient{
 		Client: client,
 	}
 }
 
-type RedisClient struct {
+type CacheClient struct {
 	Client *redis.Client
 }
 
-type IRedisClient interface {
+type ICacheClient interface {
 	SetValue(key string, value string) error
 	SetAPIValue(key string, value interface{}) error
 }
 
 func ConnectCache() *redis.Client {
 	var ctx = context.Background()
-	RedisClient := redis.NewClient(&redis.Options{
+	CacheClient := redis.NewClient(&redis.Options{
 		Addr: "redis:6379",
 	})
-	_, err := RedisClient.Ping(ctx).Result()
+	_, err := CacheClient.Ping(ctx).Result()
 	if err != nil {
-		log.Fatalf("Failed to connect to Redis: %v", err)
+		log.Fatalf("Failed to connect to Cache: %v", err)
 	}
 
-	log.Println("Redis connected successfully")
-	return RedisClient
+	log.Println("Cache connected successfully")
+	return CacheClient
 }
 
-func (r *RedisClient) SetValue(key string, value string) error {
+func (r *CacheClient) SetValue(key string, value string) error {
 	var ctx = context.Background()
 	err := r.Client.Set(ctx, key, value, time.Hour*24*365).Err()
 	if err != nil {
-		log.Println("failed to set value in Redis:", err)
+		log.Println("failed to set value in Cache:", err)
 	}
 	return err
 }
-func (r *RedisClient) SetAPIValue(key string, value interface{}) error {
+func (r *CacheClient) SetAPIValue(key string, value interface{}) error {
 	var ctx = context.Background()
 	err := r.Client.Set(ctx, key, value, 10*time.Minute).Err()
 	if err != nil {
-		log.Println("failed to set value in Redis:", err)
+		log.Println("failed to set value in Cache:", err)
 	}
 	return err
 }

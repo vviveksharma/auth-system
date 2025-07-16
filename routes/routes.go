@@ -25,6 +25,7 @@ func Routes(app *fiber.App, h *controllers.Handler, client *redis.Client) {
 
 	role.Get("/", middlewares.ExtractRoleIdMiddleware(), h.ListAllRoles)
 	role.Get("/verify", h.VerifyRole)
+	role.Post("/custom", h.CreateCustomRole)
 
 	tenant.Post("/", h.CreateTenant)
 	tenant.Post("/login", h.LoginTenant)

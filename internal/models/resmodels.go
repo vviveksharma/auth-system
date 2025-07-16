@@ -50,5 +50,8 @@ type LoginTenantResponse struct {
 
 type RevokeTokenResponse struct {
 	Message string `json:"message"`
+}
 
+type CreateCustomRoleResponse struct {
+	Message string `json:"message"`
 }

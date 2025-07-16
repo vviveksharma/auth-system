@@ -70,5 +70,6 @@ Admin
 - Create a features docs so that people could see and use that
 - Create a swagger docs
 - Add the RLS rule for the tenant id
-- Add logic to print the custom role and system defined roles
+- Add logic to print the custom role and system defined roles ( introduce the flag query params)
 - Project Name is Guardrail or FlexAuth
+- Enhance the middleware
