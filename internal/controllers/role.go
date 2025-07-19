@@ -7,7 +7,11 @@ import (
 )
 
 func (h *Handler) ListAllRoles(ctx *fiber.Ctx) error {
-	resp, err := h.RoleService.ListAllRoles()
+	flag := ctx.Query("type")
+	if flag == "" {
+		flag = "default"
+	}
+	resp, err := h.RoleService.ListAllRoles(flag)
 	if err != nil {
 		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
@@ -15,7 +19,7 @@ func (h *Handler) ListAllRoles(ctx *fiber.Ctx) error {
 			return ctx.JSON(500, "an unexpected error occurred")
 		}
 	}
-	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
+	return ctx.Status(fiber.StatusOK).JSON(&dbmodels.ServiceResponse{
 		Code:    200,
 		Message: "Roles are as follow",
 		Data:    resp,
@@ -53,14 +57,21 @@ func (h *Handler) VerifyRole(ctx *fiber.Ctx) error {
 }
 
 func (h *Handler) CreateCustomRole(ctx *fiber.Ctx) error {
-	roleName := ctx.Params("role")
-	if roleName == "" {
-		return &dbmodels.ServiceResponse{
+	var req models.CreateCustomRole
+	err := ctx.BodyParser(&req)
+	if err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(dbmodels.ServiceResponse{
 			Code:    fiber.StatusBadRequest,
-			Message: "Role name parameter is missing or empty. Please provide a valid role name in the URL path parameter.",
-		}
+			Message: "Invalid request payload. Please ensure the request body is properly formatted.",
+		})
 	}
-	resp, err := h.RoleService.CreateCustomRole(roleName)
+	if req.RoleName == "" || req.Routes == nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(dbmodels.ServiceResponse{
+			Code:    fiber.StatusBadRequest,
+			Message: "Invalid request payload. Please ensure the request body is properly formatted.",
+		})
+	}
+	resp, err := h.RoleService.CreateCustomRole(&req)
 	if err != nil {
 		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)

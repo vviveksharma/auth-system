@@ -1,7 +1,7 @@
 package repo
 
 import (
-	"errors"
+	"slices"
 
 	"github.com/google/uuid"
 	"github.com/vviveksharma/auth/models"
@@ -10,7 +10,8 @@ import (
 
 type RouteRoleRepositoryInterface interface {
 	Create(req *models.DBRouteRole) error
-	FindByRoute(route string, roleId uuid.UUID) (bool, error)
+	FindByRoleId(roleId uuid.UUID) (bool, error)
+	UpdateRouteRole(roleId string, route string) error
 }
 
 type RouteRoleRepository struct {
@@ -34,23 +35,21 @@ func (rr *RouteRoleRepository) Create(req *models.DBRouteRole) error {
 	return nil
 }
 
-func (rr *RouteRoleRepository) FindByRoute(route string, roleId uuid.UUID) (bool, error) {
+func (rr *RouteRoleRepository) FindByRoleId(roleId uuid.UUID) (bool, error) {
 	transaction := rr.DB.Begin()
 	if transaction.Error != nil {
 		return false, transaction.Error
 	}
 	defer transaction.Rollback()
 	var RoleRouteDetails models.DBRouteRole
-	rrErr := transaction.Model(&models.DBRouteRole{}).Where("route = ?", route).Find(&RoleRouteDetails)
-	if rrErr.Error != nil {
-		return false, rrErr.Error
-	}
-	for _, role := range RoleRouteDetails.RoleId {
-		if uuid.MustParse(role) == roleId {
-			return true, nil
+	err := rr.DB.Where("role_id = ?", roleId).First(&RoleRouteDetails).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return false, nil
 		}
+		return false, err
 	}
-	return false, errors.New("the route associated with role not found")
+	return true, nil
 }
 
 func (rr *RouteRoleRepository) UpdateRouteRole(roleId string, route string) error {
@@ -59,11 +58,22 @@ func (rr *RouteRoleRepository) UpdateRouteRole(roleId string, route string) erro
 		return transaction.Error
 	}
 	defer transaction.Rollback()
-	err := transaction.Model(&models.DBRouteRole{}).Where("route = ?", route).Updates(map[string]interface{}{
-		"roles" : []string{roleId},
-	})
-	if err.Error != nil {
-		return err.Error
+	var RoleRouteDetails models.DBRouteRole
+	roleRouteDetails := transaction.Model(&models.DBRouteRole{}).Where("role_id = ?", roleId).Find(&RoleRouteDetails)
+	if roleRouteDetails.Error != nil {
+		return roleRouteDetails.Error
 	}
+	if slices.Contains(RoleRouteDetails.Route, route) {
+		return nil
+	}
+
+	// Append the new route and update
+	RoleRouteDetails.Route = append(RoleRouteDetails.Route, route)
+	update := rr.DB.Model(&models.DBRouteRole{}).Where("role_id = ?", roleId).Update("route", RoleRouteDetails.Route)
+	if update.Error != nil {
+		return update.Error
+	}
+
 	return nil
+
 }

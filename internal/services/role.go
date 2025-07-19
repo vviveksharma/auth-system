@@ -1,6 +1,8 @@
 package services
 
 import (
+	"strings"
+
 	"github.com/gofiber/fiber/v2/log"
 	"github.com/google/uuid"
 	"github.com/vviveksharma/auth/db"
@@ -10,13 +12,14 @@ import (
 )
 
 type RoleService interface {
-	CreateCustomRole(roleName string) (resp *models.CreateCustomRoleResponse, err error)
-	ListAllRoles() (response []*models.ListAllRolesResponse, err error)
+	CreateCustomRole(req *models.CreateCustomRole) (resp *models.CreateCustomRoleResponse, err error)
+	ListAllRoles(typeFlag string) (response []*models.ListAllRolesResponse, err error)
 	VerifyRole(req *models.VerifyRoleRequest) (response *models.VerifyRoleResponse, err error)
 }
 
 type Role struct {
-	RoleRepo repo.RoleRepositoryInterface
+	RoleRepo      repo.RoleRepositoryInterface
+	RoleRouteRepo repo.RouteRoleRepositoryInterface
 }
 
 func NewRoleService() (RoleService, error) {
@@ -35,10 +38,15 @@ func (r *Role) SetupRepo() error {
 		return err
 	}
 	r.RoleRepo = role
+	routeRole, err := repo.NewRouteRoleRepository(db.DB)
+	if err != nil {
+		return err
+	}
+	r.RoleRouteRepo = routeRole
 	return nil
 }
 
-func (r *Role) ListAllRoles() (response []*models.ListAllRolesResponse, err error) {
+func (r *Role) ListAllRoles(typeFlag string) (response []*models.ListAllRolesResponse, err error) {
 	roles, err := r.RoleRepo.GetAllRoles()
 	if err != nil {
 		return nil, &dbmodels.ServiceResponse{
@@ -47,6 +55,9 @@ func (r *Role) ListAllRoles() (response []*models.ListAllRolesResponse, err erro
 		}
 	}
 	for _, i := range roles {
+		if i.RoleType != typeFlag {
+			continue
+		}
 		var res models.ListAllRolesResponse
 		res.Name = i.Role
 		response = append(response, &res)
@@ -81,26 +92,65 @@ func (r *Role) VerifyRole(req *models.VerifyRoleRequest) (response *models.Verif
 	}, nil
 }
 
-func (r *Role) CreateCustomRole(roleName string) (resp *models.CreateCustomRoleResponse, err error) {
-	_, err = r.RoleRepo.FindRoleId(roleName)
-	if err != nil && err.Error() != "record not found " {
+func (r *Role) CreateCustomRole(req *models.CreateCustomRole) (resp *models.CreateCustomRoleResponse, err error) {
+	// First fetching the role id
+	roleId, err := r.RoleRepo.FindRoleId(req.RoleName)
+	if err != nil {
+		if !strings.Contains(err.Error(), "not found") {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    500,
+				Message: "An unexpected error occurred while searching for the role '" + req.RoleName + "': " + err.Error(),
+			}
+		} else {
+			newRoleId := uuid.New()
+			err := r.RoleRepo.CreateRole(&dbmodels.DBRoles{
+				Role:     req.RoleName,
+				RoleId:   newRoleId,
+				RoleType: "custom",
+			})
+			if err != nil {
+				return nil, &dbmodels.ServiceResponse{
+					Code:    500,
+					Message: "An unexpected error occurred while creating the role: " + err.Error(),
+				}
+			}
+			roleId = newRoleId
+		}
+
+	}
+
+	rresp, err := r.RoleRouteRepo.FindByRoleId(roleId)
+	if err != nil {
 		return nil, &dbmodels.ServiceResponse{
 			Code:    500,
-			Message: "error while fetching the existing role information: " + err.Error(),
+			Message: "An unexpected error occurred while searching for the role-route association: " + err.Error(),
 		}
 	}
-	err = r.RoleRepo.CreateRole(&dbmodels.DBRoles{
-		Role:     roleName,
-		RoleId:   uuid.New(),
-		RoleType: "custom",
-	})
-	if err != nil && err.Error() != "record not found" {
-		return nil, &dbmodels.ServiceResponse{
-			Code:    500,
-			Message: "error while creating a role: " + err.Error(),
+	if rresp {
+		// RoleId entry present, updating the routes (adding them)
+		for _, route := range req.Routes {
+			updateRouteErr := r.RoleRouteRepo.UpdateRouteRole(roleId.String(), route)
+			if updateRouteErr != nil {
+				return nil, &dbmodels.ServiceResponse{
+					Code:    500,
+					Message: "An unexpected error occurred while updating the route for the existing role ID: " + updateRouteErr.Error(),
+				}
+			}
+		}
+	} else {
+		err := r.RoleRouteRepo.Create(&dbmodels.DBRouteRole{
+			TenantId: uuid.MustParse("dae760ab-0a7f-4cbd-8603-def85ad8e430"),
+			RoleId:   roleId,
+			Route:    req.Routes,
+		})
+		if err != nil {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    500,
+				Message: "An unexpected error occurred while creating a new role-route entry: " + err.Error(),
+			}
 		}
 	}
 	return &models.CreateCustomRoleResponse{
-		Message: "role with " + roleName + " created successfully.",
+		Message: "role with " + req.RoleName + " created successfully.",
 	}, nil
 }

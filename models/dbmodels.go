@@ -120,8 +120,8 @@ func (*DBTenantLogin) BeforeCreate(tx *gorm.DB) error {
 type DBRouteRole struct {
 	Id       uuid.UUID      `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
 	TenantId uuid.UUID      `gorm:"type:uuid;not null"`
-	RoleId   pq.StringArray `gorm:"type:text[]" json:"roles"`
-	Route    string         `json:"route"`
+	RoleId   uuid.UUID      `json:"role_id"`
+	Route    pq.StringArray `gorm:"type:text[]" json:"routes"`
 }
 
 func (DBRouteRole) TableName() string {

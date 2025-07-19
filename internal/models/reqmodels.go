@@ -37,13 +37,18 @@ type VerifyRoleRequest struct {
 }
 
 type CreateTenantRequest struct {
-	Name     string    `json:"name"`
-	Email    string    `json:"email"`
-	Campany  string    `json:"campany"`
-	Password string    `json:"password"`
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Campany  string `json:"campany"`
+	Password string `json:"password"`
 }
 
 type LoginTenantRequest struct {
-	Email    string    `json:"email"`
-	Password string    `json:"password"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type CreateCustomRole struct {
+	RoleName string   `json:"role"`
+	Routes   []string `json:"routes"`
 }

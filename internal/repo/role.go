@@ -1,7 +1,6 @@
 package repo
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -58,12 +57,7 @@ func (r *RoleRepository) FindRoleId(roleName string) (roleId uuid.UUID, err erro
 	var roles models.DBRoles
 	result := transaction.Where("role = ?", roleName).First(&roles)
 
-	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		fmt.Printf("Role '%s' not found in FindRoleId\n", roleName)
-		return uuid.Nil, fmt.Errorf("role '%s' not found", roleName)
-	}
 	if result.Error != nil {
-		fmt.Printf("Error fetching roleId for '%s' in FindRoleId: %v\n", roleName, result.Error)
 		return uuid.Nil, result.Error
 	}
 	fmt.Printf("Successfully found roleId %s for roleName '%s'\n", roles.RoleId, roleName)
@@ -80,5 +74,6 @@ func (r *RoleRepository) CreateRole(req *models.DBRoles) error {
 	if create.Error != nil {
 		return create.Error
 	}
+	transaction.Commit()
 	return nil
 }
