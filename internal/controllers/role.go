@@ -84,3 +84,32 @@ func (h *Handler) CreateCustomRole(ctx *fiber.Ctx) error {
 		Message: resp.Message,
 	})
 }
+
+func (h *Handler) UpdateRolePermission(ctx *fiber.Ctx) error {
+	var req models.UpdateRolePermissions
+	err := ctx.BodyParser(&req)
+	if err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(dbmodels.ServiceResponse{
+			Code:    fiber.StatusBadRequest,
+			Message: "Invalid request payload. Please ensure the request body is properly formatted.",
+		})
+	}
+	if req.AddPermisions == nil || req.RemovePermissions == nil || req.RoleName == "" {
+		return ctx.Status(fiber.StatusBadRequest).JSON(dbmodels.ServiceResponse{
+			Code:    fiber.StatusBadRequest,
+			Message: "Invalid request payload. Please ensure the request body is properly formatted.",
+		})
+	}
+	resp, err := h.RoleService.UpdateRolePermission(&req)
+	if err != nil {
+		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(err)
+		} else {
+			return ctx.JSON(500, "an unexpected error occurred")
+		}
+	}
+	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
+		Code:    200,
+		Message: resp.Message,
+	})
+}

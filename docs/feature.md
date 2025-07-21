@@ -7,21 +7,21 @@
 
 ## API Endpoints
 
-| Endpoint                   | Method | Description                                                | Access        |
-| -------------------------- | ------ | ---------------------------------------------------------- | ------------- |
-| `/auth/register`           | POST   | Register a new user (admin only).                          | Admin         |
-| `/auth/login`              | POST   | Authenticate a user and issue a session/token.             | Public        |
-| `/auth/logout`             | POST   | Log out the current user and invalidate the session/token. | Authenticated |
-| `/users/`                  | GET    | List all users (admin only).                               | Admin         |
-| `/users/me`                | GET    | Retrieve the profile of the currently authenticated user.  | Authenticated |
-| `/users/me`                | PUT    | Update the logged in user ( any role)                      | Authenticated |
-| `/users/:id/roles`         | PUT    | Update the specific user role.                             | Admin         |
-| `/roles`                   | GET    | Get all the present roles ( default and custom )           | Admin         |
-| `/roles`                   | POST   | Create custom role (e.g., support_agent)                   | Admin         |
-| `/roles`                   | PUT    | Update the custom role routes                              | Admin         |
-| `/roles/:role/permissions` | PUT    | Update permissions for a role                              | Admin         |
-| `/admin/logs`              | GET    | View system access logs                                    | Admin         |
-| `/admin/stats`             | GET    | Get RBAC usage statistics                                  | Tenant-Admin  |
+| Endpoint             | Method | Description                                                | Access        |
+| -------------------- | ------ | ---------------------------------------------------------- | ------------- |
+| `/auth/register`     | POST   | Register a new user (admin only).                          | Admin         |
+| `/auth/login`        | POST   | Authenticate a user and issue a session/token.             | Public        |
+| `/auth/logout`       | POST   | Log out the current user and invalidate the session/token. | Authenticated |
+| `/users/`            | GET    | List all users (admin only).                               | Admin         |
+| `/users/me`          | GET    | Retrieve the profile of the currently authenticated user.  | Authenticated |
+| `/users/me`          | PUT    | Update the logged in user ( any role)                      | Authenticated |
+| `/users/:id/roles`   | PUT    | Update the specific user role.                             | Admin         |
+| `/roles`             | GET    | Get all the present roles ( default and custom )           | Admin         |
+| `/roles`             | POST   | Create custom role (e.g., support_agent)                   | Admin         |
+| `/roles`             | PUT    | Update the custom role routes                              | Admin         |
+| `/roles/permissions` | PUT    | Update permissions for a role                              | Admin         |
+| `/admin/logs`        | GET    | View system access logs                                    | Admin         |
+| `/admin/stats`       | GET    | Get RBAC usage statistics                                  | Tenant-Admin  |
 
 ---
 
@@ -61,9 +61,9 @@ Get all the present roles ( default and custom ).
 
 Create custom role (e.g., support_agent).
 
-### `/roles/:role/permissions`
+### `/roles/permissions`
 
-Update permissions for a role.
+Update permissions for a role ( Custom roles ).
 
 ### `/admin/logs`
 

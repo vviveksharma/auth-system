@@ -12,6 +12,7 @@ type RoleRepositoryInterface interface {
 	CreateRole(req *models.DBRoles) error
 	GetAllRoles() ([]*models.DBRoles, error)
 	FindRoleId(roleName string) (roleId uuid.UUID, err error)
+	FindByName(roleName string) (*models.DBRoles, error)
 }
 
 type RoleRepository struct {
@@ -76,4 +77,17 @@ func (r *RoleRepository) CreateRole(req *models.DBRoles) error {
 	}
 	transaction.Commit()
 	return nil
+}
+
+func (r *RoleRepository) FindByName(roleName string) (resp *models.DBRoles, err error) {
+	transaction := r.DB.Begin()
+	if transaction.Error != nil {
+		return nil, transaction.Error
+	}
+	defer transaction.Rollback()
+	rr := transaction.Where("role = ?", roleName).First(&resp)
+	if rr.Error != nil {
+		return nil, rr.Error
+	}
+	return resp, nil
 }

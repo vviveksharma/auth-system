@@ -15,6 +15,7 @@ type RoleService interface {
 	CreateCustomRole(req *models.CreateCustomRole) (resp *models.CreateCustomRoleResponse, err error)
 	ListAllRoles(typeFlag string) (response []*models.ListAllRolesResponse, err error)
 	VerifyRole(req *models.VerifyRoleRequest) (response *models.VerifyRoleResponse, err error)
+	UpdateRolePermission(req *models.UpdateRolePermissions) (resp *models.CreateCustomRoleResponse, err error)
 }
 
 type Role struct {
@@ -152,5 +153,38 @@ func (r *Role) CreateCustomRole(req *models.CreateCustomRole) (resp *models.Crea
 	}
 	return &models.CreateCustomRoleResponse{
 		Message: "role with " + req.RoleName + " created successfully.",
+	}, nil
+}
+
+func (r *Role) UpdateRolePermission(req *models.UpdateRolePermissions) (resp *models.CreateCustomRoleResponse, err error) {
+	roleDetails, err := r.RoleRepo.FindByName(req.RoleName)
+	if err != nil {
+		if !strings.Contains(err.Error(), "not found") {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    500,
+				Message: "An unexpected error occurred while searching for the role '" + req.RoleName + "': " + err.Error(),
+			}
+		} else {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    404,
+				Message: "The requested role name '" + req.RoleName + "' does not exist. Please verify the role name and try again.",
+			}
+		}
+	}
+	if roleDetails.RoleType == "default" {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    409,
+			Message: "The default role cannot be modified. Please create a custom role if you need to make changes.",
+		}
+	}
+	err = r.RoleRouteRepo.DeleteAndUpdateRole(roleDetails.RoleId.String(), req.AddPermisions, req.RemovePermissions)
+	if err != nil && !strings.Contains(err.Error(), "not found") {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while updating the routes in the: " + err.Error(),
+		}
+	}
+	return &models.CreateCustomRoleResponse{
+		Message: "The role permissions for '" + req.RoleName + "' have been updated successfully.",
 	}, nil
 }

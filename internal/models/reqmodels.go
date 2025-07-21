@@ -52,3 +52,9 @@ type CreateCustomRole struct {
 	RoleName string   `json:"role"`
 	Routes   []string `json:"routes"`
 }
+
+type UpdateRolePermissions struct {
+	RoleName          string   `json:"role"`
+	AddPermisions     []string `json:"add_permissions"`
+	RemovePermissions []string `json:"remove_permissions"`
+}

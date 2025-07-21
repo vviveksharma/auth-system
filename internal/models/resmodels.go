@@ -55,3 +55,7 @@ type RevokeTokenResponse struct {
 type CreateCustomRoleResponse struct {
 	Message string `json:"message"`
 }
+
+type UpdateRolePermissionsResponse struct {
+	Message string `json:"message"`
+}
