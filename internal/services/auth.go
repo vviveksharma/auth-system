@@ -154,6 +154,8 @@ func (a *Auth) LoginUser(req *models.UserLoginRequest) (res *models.UserLoginRes
 	}, nil
 }
 
+func (a *Auth) Logout()
+
 func (a *Auth) RefreshToken(id string, roleId string) (res *models.UserLoginResponse, err error) {
 	loginDetails, err := a.LoginRepo.GetUserById(id)
 	if err != nil {

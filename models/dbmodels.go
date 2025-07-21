@@ -10,9 +10,11 @@ import (
 
 type DBUser struct {
 	Id       uuid.UUID      `gorm:"primaryKey,column:id"`
+	TenantId uuid.UUID      `gorm:"type:uuid;not null"`
 	Name     string         `json:"name"`
 	Email    string         `json:"email"`
 	Password string         `json:"password"`
+	Salt     string         `json:"salt"`
 	Roles    pq.StringArray `gorm:"type:text[]" json:"roles"`
 }
 
@@ -30,6 +32,7 @@ type DBRoles struct {
 	Id       uuid.UUID `gorm:"primaryKey,column:id"`
 	Role     string    `json:"role"`
 	RoleId   uuid.UUID `json:"role_id"`
+	TenantId uuid.UUID `gorm:"type:uuid;not null"`
 	RoleType string    `json:"role_type"`
 }
 
@@ -45,6 +48,7 @@ func (*DBRoles) BeforeCreate(tx *gorm.DB) error {
 
 type DBLogin struct {
 	Id        uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
+	TenantId  uuid.UUID `gorm:"type:uuid;not null"`
 	UserId    uuid.UUID `gorm:"type:uuid;not null"`
 	RoleId    uuid.UUID `gorm:"type:uuid;not null"`
 	JWTToken  string    `gorm:"type:text;not null"`

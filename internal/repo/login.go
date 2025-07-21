@@ -12,6 +12,7 @@ type LoginRepositoryInterface interface {
 	Create(req *models.DBLogin) error
 	GetUserById(id string) (loginDetails *models.DBLogin, err error)
 	UpdateUserToken(id string, jwt string) error
+	DeleteToken(id string) error
 }
 
 type LoginRepository struct {
@@ -22,8 +23,8 @@ func NewLoginRepository(db *gorm.DB) (LoginRepositoryInterface, error) {
 	return &LoginRepository{DB: db}, nil
 }
 
-func (r *LoginRepository) Create(req *models.DBLogin) error {
-	transaction := r.DB.Begin()
+func (l *LoginRepository) Create(req *models.DBLogin) error {
+	transaction := l.DB.Begin()
 	if transaction.Error != nil {
 		return transaction.Error
 	}
@@ -36,8 +37,8 @@ func (r *LoginRepository) Create(req *models.DBLogin) error {
 	return nil
 }
 
-func (ur *LoginRepository) GetUserById(id string) (loginDetails *models.DBLogin, err error) {
-	transaction := ur.DB.Begin()
+func (l *LoginRepository) GetUserById(id string) (loginDetails *models.DBLogin, err error) {
+	transaction := l.DB.Begin()
 	if transaction.Error != nil {
 		return nil, transaction.Error
 	}
@@ -52,8 +53,8 @@ func (ur *LoginRepository) GetUserById(id string) (loginDetails *models.DBLogin,
 	return loginDetails, nil
 }
 
-func (ur *LoginRepository) UpdateUserToken(id string, jwt string) error {
-	transaction := ur.DB.Begin()
+func (l *LoginRepository) UpdateUserToken(id string, jwt string) error {
+	transaction := l.DB.Begin()
 	if transaction.Error != nil {
 		return transaction.Error
 	}
@@ -67,6 +68,22 @@ func (ur *LoginRepository) UpdateUserToken(id string, jwt string) error {
 		"token":      jwt,
 		"issued_at":  time.Now(),
 		"expires_at": time.Now().Add(30 * time.Minute),
+	}).Error; err != nil {
+		return err
+	}
+	transaction.Commit()
+	return nil
+}
+
+func (l *LoginRepository) DeleteToken(id string) error {
+	transaction := l.DB.Begin()
+	if transaction.Error != nil {
+		return transaction.Error
+	}
+	defer transaction.Rollback()
+	if err := transaction.Model(&models.DBLogin{}).Where("id = ? ", uuid.MustParse(id)).Updates(map[string]interface{}{
+		"revoked":    true,
+		"expires_at": time.Now(),
 	}).Error; err != nil {
 		return err
 	}

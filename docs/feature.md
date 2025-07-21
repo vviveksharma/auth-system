@@ -10,8 +10,9 @@
 | Endpoint             | Method | Description                                                | Access        |
 | -------------------- | ------ | ---------------------------------------------------------- | ------------- |
 | `/auth/register`     | POST   | Register a new user (admin only).                          | Admin         |
-| `/auth/login`        | POST   | Authenticate a user and issue a session/token.             | Public        |
+| `/auth/login`        | POST   | Authenticate a user and issue a session/token.             | Guest         |
 | `/auth/logout`       | POST   | Log out the current user and invalidate the session/token. | Authenticated |
+| `/auth/logout`       | PUT    | To log out the existing user any role that is logged in    | Authenticated |
 | `/users/`            | GET    | List all users (admin only).                               | Admin         |
 | `/users/me`          | GET    | Retrieve the profile of the currently authenticated user.  | Authenticated |
 | `/users/me`          | PUT    | Update the logged in user ( any role)                      | Authenticated |
