@@ -75,12 +75,13 @@ func TenantMiddleWare() fiber.Handler {
 			})
 		}
 		log.Println(" the token string :", tokenStr)
-		resp, err := Newtoken.VerifyToken(tokenStr)
+		resp, tenant_id, err := Newtoken.VerifyToken(tokenStr)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(err)
 		}
 		if resp {
 			c.Locals("token", tokenStr)
+			c.Locals("tenant_id", tenant_id)
 		}
 		return c.Next()
 	}

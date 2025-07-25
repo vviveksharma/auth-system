@@ -69,7 +69,14 @@ func (a *Auth) LoginUser(req *models.UserLoginRequest) (res *models.UserLoginRes
 			}
 		}
 	}
-	if req.Password != userDetails.Password {
+	flag, err := utils.ComparePassword(req.Password, userDetails.Password, userDetails.Salt, utils.DefaultParams)
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    423,
+			Message: "error while comparing password: " + err.Error(),
+		}
+	}
+	if !flag {
 		return nil, &dbmodels.ServiceResponse{
 			Code:    404,
 			Message: "password doesn't exist or is expired",
@@ -113,7 +120,7 @@ func (a *Auth) LoginUser(req *models.UserLoginRequest) (res *models.UserLoginRes
 		tokenType = "refresh"
 	}
 
-	jwt, err := utils.CraeteJWT(userDetails.Id.String(), roleId.String(), tokenType)
+	jwt, err := utils.CreateJWT(userDetails.Id.String(), roleId.String(), userDetails.TenantId.String(), tokenType)
 	if err != nil {
 		return nil, &dbmodels.ServiceResponse{
 			Code:    500,
@@ -154,8 +161,6 @@ func (a *Auth) LoginUser(req *models.UserLoginRequest) (res *models.UserLoginRes
 	}, nil
 }
 
-func (a *Auth) Logout()
-
 func (a *Auth) RefreshToken(id string, roleId string) (res *models.UserLoginResponse, err error) {
 	loginDetails, err := a.LoginRepo.GetUserById(id)
 	if err != nil {
@@ -164,7 +169,7 @@ func (a *Auth) RefreshToken(id string, roleId string) (res *models.UserLoginResp
 			Message: "error while fetching then login entry: " + err.Error(),
 		}
 	}
-	jwt, err := utils.CraeteJWT(loginDetails.Id.String(), roleId, "refresh")
+	jwt, err := utils.CreateJWT(loginDetails.Id.String(), roleId, loginDetails.TenantId.String(), "refresh")
 	if err != nil {
 		return nil, &dbmodels.ServiceResponse{
 			Code:    500,

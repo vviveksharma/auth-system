@@ -15,7 +15,7 @@ type TokenRepositoryInterface interface {
 	ListTokens(tenantid uuid.UUID) (resp []*models.DBToken, err error)
 	GetTenantUsingToken(token string) (*uuid.UUID, error)
 	RevokeToken(token string) error
-	VerifyToken(token string) (bool, error)
+	VerifyToken(token string) (bool, string, error)
 }
 
 type TokenRepository struct {
@@ -104,35 +104,35 @@ func (to *TokenRepository) RevokeToken(token string) error {
 	return nil
 }
 
-func (to *TokenRepository) VerifyToken(token string) (bool, error) {
+func (to *TokenRepository) VerifyToken(token string) (bool, string, error) {
 	log.Println("inside the verify token")
 	transaction := to.DB.Begin()
 	if transaction.Error != nil {
-		return false, transaction.Error
+		return false, "", transaction.Error
 	}
 	defer transaction.Rollback()
 	var tokenDetails models.DBToken
 	tokenErr := transaction.Model(&models.DBToken{}).Where("token = ?", token).First(&tokenDetails)
 	if tokenErr.Error != nil {
 		log.Println("the token details error: ", tokenErr.Error)
-		return false, tokenErr.Error
+		return false, "", transaction.Error
 	}
 	log.Println("the token details: ", tokenDetails)
 	if tokenDetails.ExpiresAt.Before(time.Now()) {
-		return false, &models.ServiceResponse{
+		return false, "", &models.ServiceResponse{
 			Code:    404,
 			Message: "Token expired please login again",
 		}
 	}
 	if !tokenDetails.IsActive {
-		return false, &models.ServiceResponse{
+		return false, "", &models.ServiceResponse{
 			Code:    401,
 			Message: "Token has been revoked. Please authenticate again.",
 		}
 	}
 	rerr := to.RevokeToken(token)
 	if rerr != nil {
-		return false, rerr
+		return false, "", rerr
 	}
-	return true, nil
+	return true, tokenDetails.TenantId.String(), nil
 }

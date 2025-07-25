@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"os"
 	"time"
 
@@ -27,7 +28,7 @@ var DefaultParams = &Argon2Params{
 	KeyLength:   32,
 }
 
-func CraeteJWT(userId string, roleId string, tokenType string) (string, error) {
+func CreateJWT(userId string, roleId string, tenantId string, tokenType string) (string, error) {
 
 	var expirationTime time.Time
 
@@ -40,6 +41,7 @@ func CraeteJWT(userId string, roleId string, tokenType string) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id":   userId,
 		"role_id":   roleId,
+		"tenant_id": tenantId,
 		"type":      tokenType,
 		"exp":       expirationTime.Unix(),
 		"is_logged": true,
@@ -90,4 +92,15 @@ func ComparePassword(password, storedHashBase64, storedSaltBase64 string, p *Arg
 		return true, nil
 	}
 	return false, errors.New("password does not match")
+}
+
+func ConvertTime(input string) time.Time {
+	layout := "2006-01-02" // Layout must match the input format
+
+	parsedTime, err := time.Parse(layout, input)
+	if err != nil {
+		fmt.Println("Error parsing date:", err)
+		return time.Time{}
+	}
+	return parsedTime
 }

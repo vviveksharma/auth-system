@@ -73,7 +73,7 @@ func (h *Handler) LoginTenant(ctx *fiber.Ctx) error {
 
 func (h *Handler) ListTokens(ctx *fiber.Ctx) error {
 	token := ctx.Locals("token").(string)
-	resp, err := h.TenantService.ListTokens(token)
+	resp, err := h.TenantService.ListTokens(ctx.Context(), token)
 	if err != nil {
 		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
@@ -96,7 +96,7 @@ func (h *Handler) RevokeToken(ctx *fiber.Ctx) error {
 			Message: "token that needed to be revoked should not be empty",
 		})
 	}
-	resp, err := h.TenantService.RevokeToken(token)
+	resp, err := h.TenantService.RevokeToken(ctx.Context(), token)
 	if err != nil {
 		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)

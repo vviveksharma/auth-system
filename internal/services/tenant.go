@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,8 +14,8 @@ import (
 type TenantService interface {
 	CreateTenant(req *models.CreateTenantRequest) (resp *models.CreateTenantResponse, err error)
 	LoginTenant(req *models.LoginTenantRequest, ip string) (resp *models.LoginTenantResponse, err error)
-	ListTokens(token string) ([]*string, error)
-	RevokeToken(token string) (resp *models.RevokeTokenResponse, err error)
+	ListTokens(ctx context.Context, token string) ([]*string, error)
+	RevokeToken(ctx context.Context, token string) (resp *models.RevokeTokenResponse, err error)
 }
 
 type Tenant struct {
@@ -128,7 +129,7 @@ func (t *Tenant) LoginTenant(req *models.LoginTenantRequest, ip string) (resp *m
 	}, nil
 }
 
-func (t *Tenant) ListTokens(token string) ([]*string, error) {
+func (t *Tenant) ListTokens(ctx context.Context, token string) ([]*string, error) {
 	tenantId, err := t.TokenRepo.GetTenantUsingToken(token)
 	if err != nil {
 		return nil, &dbmodels.ServiceResponse{}
@@ -147,7 +148,7 @@ func (t *Tenant) ListTokens(token string) ([]*string, error) {
 	return tokens, nil
 }
 
-func (t *Tenant) RevokeToken(token string) (resp *models.RevokeTokenResponse, err error) {
+func (t *Tenant) RevokeToken(ctx context.Context, token string) (resp *models.RevokeTokenResponse, err error) {
 	err = t.TokenRepo.RevokeToken(token)
 	if err != nil {
 		return nil, &dbmodels.ServiceResponse{

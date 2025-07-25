@@ -7,6 +7,7 @@ import (
 	"github.com/vviveksharma/auth/db"
 	"github.com/vviveksharma/auth/internal/models"
 	"github.com/vviveksharma/auth/internal/repo"
+	"github.com/vviveksharma/auth/internal/utils"
 	dbmodels "github.com/vviveksharma/auth/models"
 )
 
@@ -55,11 +56,22 @@ func (u *User) CreateUser(req *models.UserRequest) (*models.UserResponse, error)
 			Message: "user with name exist please login",
 		}
 	}
+	// Storing the hash password
+	pass, salt, err := utils.GeneratePasswordHash(req.Password, utils.DefaultParams)
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    423,
+			Message: "error while generating and storing the password: " + err.Error(),
+		}
+	}
+	id := uuid.MustParse("dae760ab-0a7f-4cbd-8603-def85ad8e430")
 	err = u.UserRepo.CreateUser(&dbmodels.DBUser{
+		TenantId: id,
 		Name:     req.Name,
 		Email:    req.Email,
-		Password: req.Password,
-		Roles:    []string{"guest"},
+		Password: pass,
+		Salt:     salt,
+		Roles:    []string{"admin"},
 	})
 	if err != nil {
 		return nil, &dbmodels.ServiceResponse{
