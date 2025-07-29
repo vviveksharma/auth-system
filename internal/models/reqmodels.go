@@ -58,3 +58,7 @@ type UpdateRolePermissions struct {
 	AddPermisions     []string `json:"add_permissions"`
 	RemovePermissions []string `json:"remove_permissions"`
 }
+
+type ResetPasswordRequest struct {
+	Email string `json:"email"`
+}

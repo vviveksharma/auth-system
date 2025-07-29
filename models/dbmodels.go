@@ -137,3 +137,21 @@ func (*DBRouteRole) BeforeCreate(tx *gorm.DB) error {
 	tx.Statement.SetColumn("Id", uuid)
 	return nil
 }
+
+type DBResetToken struct {
+	Id        uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
+	UserId    uuid.UUID `gorm:"type:uuid;not null"`
+	TenantId  uuid.UUID `gorm:"type:uuid;not null"`
+	ExpiresAt time.Time `gorm:"not null"`
+	IsActive  bool      `json:"is_active"`
+}
+
+func (DBResetToken) TableName() string {
+	return "db_reset_token"
+}
+
+func (*DBResetToken) BeforeCreate(tx *gorm.DB) error {
+	uuid := uuid.New().String()
+	tx.Statement.SetColumn("Id", uuid)
+	return nil
+}

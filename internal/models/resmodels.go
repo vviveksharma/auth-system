@@ -59,3 +59,7 @@ type CreateCustomRoleResponse struct {
 type UpdateRolePermissionsResponse struct {
 	Message string `json:"message"`
 }
+
+type ResetPasswordResponse struct {
+	Message string `json:"message"`
+}

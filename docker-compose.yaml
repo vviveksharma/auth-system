@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   db:
@@ -25,6 +25,16 @@ services:
       - redis-data:/data
     networks:
       - mynetwork
+
+  mailpit:
+    image: axllent/mailpit
+    container_name: mailpit
+    restart: always
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    environment:
+      - MP_SMTP_AUTH_ALLOW_INSECURE=true
 
   app:
     build:

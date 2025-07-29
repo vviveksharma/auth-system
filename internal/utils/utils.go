@@ -5,12 +5,15 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	mathrand "math/rand"
 	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/crypto/argon2"
 )
+
+var charset = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
 type Argon2Params struct {
 	Memory      uint32
@@ -103,4 +106,12 @@ func ConvertTime(input string) time.Time {
 		return time.Time{}
 	}
 	return parsedTime
+}
+
+func GenerateRandomString(length int) string {
+	b := make([]rune, length)
+	for i := range b {
+		b[i] = charset[mathrand.Intn(len(charset))]
+	}
+	return string(b)
 }

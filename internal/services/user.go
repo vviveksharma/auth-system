@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/vviveksharma/auth/db"
@@ -20,7 +21,8 @@ type UserService interface {
 }
 
 type User struct {
-	UserRepo repo.UserRepositoryInterface
+	UserRepo       repo.UserRepositoryInterface
+	ResetTokenRepo repo.ResetTokenRepositoryInterface
 }
 
 func NewUserService() (UserService, error) {
@@ -39,6 +41,12 @@ func (u *User) SetupRepo() error {
 		return err
 	}
 	u.UserRepo = user
+
+	token, err := repo.NewResetTokenRepository(db.DB)
+	if err != nil {
+		return err
+	}
+	u.ResetTokenRepo = token
 	return nil
 }
 
@@ -182,4 +190,35 @@ func (u *User) AssignUserRole(req *models.AssignRoleRequest, userId string) (*mo
 	return &models.AssignRoleResponse{
 		Message: "User role updated successfully",
 	}, nil
+}
+
+func (u *User) ResetPassword(req *models.ResetPasswordRequest) (*models.ResetPasswordResponse, error) {
+	userDetails, err := u.UserRepo.GetUserByEmail(req.Email)
+	if err != nil {
+		if err.Error() == "record not found" {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    400,
+				Message: "Unable to find the user with the provided email: " + req.Email,
+			}
+		} else {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    500,
+				Message: fmt.Sprintf("internal error while searching for user with email '%s': %s", req.Email, err.Error()),
+			}
+		}
+	}
+	// Create a unique token valid for 5 minutes
+	tokenErr := u.ResetTokenRepo.Create(&dbmodels.DBResetToken{
+		UserId:    userDetails.Id,
+		TenantId:  userDetails.TenantId,
+		ExpiresAt: time.Now().Add(5 * time.Minute),
+		IsActive:  true,
+	})
+	if tokenErr != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: fmt.Sprintf("failed to generate password reset token for user '%s': %s", req.Email, tokenErr.Error()),
+		}
+	}
+	return &models.ResetPasswordResponse{}, nil
 }
