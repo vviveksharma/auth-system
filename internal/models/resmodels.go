@@ -1,5 +1,11 @@
 package models
 
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
+
 type UserResponse struct {
 	Message string `json:"message"`
 }
@@ -61,5 +67,16 @@ type UpdateRolePermissionsResponse struct {
 }
 
 type ResetPasswordResponse struct {
+	Message string `json:"message"`
+}
+
+type ListTokensResponse struct {
+	Name      string    `json:"name"`
+	TokenId   uuid.UUID `json:"token_id"`
+	CreateAt  time.Time `json:"created_at"`
+	ExpiresAt time.Time `json:"expiry_at"`
+}
+
+type CreateTokenResponse struct {
 	Message string `json:"message"`
 }

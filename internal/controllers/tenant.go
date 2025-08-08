@@ -110,3 +110,35 @@ func (h *Handler) RevokeToken(ctx *fiber.Ctx) error {
 		Data:    nil,
 	})
 }
+
+func (h *Handler) CreateToken(ctx *fiber.Ctx) error {
+	var req models.CreateTokenRequest
+	err := ctx.BodyParser(&req)
+	if err != nil {
+		log.Printf("Failed to parse login request body: %v", err)
+		return ctx.Status(fiber.StatusBadRequest).JSON(dbmodels.ServiceResponse{
+			Code:    fiber.StatusBadRequest,
+			Message: "Invalid request payload. Please ensure the request body is properly formatted.",
+		})
+	}
+	if req.ExpiryAt == "" || req.Name == "" {
+		log.Printf("Create token attempt failed: %+v", req)
+		return ctx.Status(fiber.StatusBadRequest).JSON(dbmodels.ServiceResponse{
+			Code:    fiber.StatusBadRequest,
+			Message: "Expiry at and name are required fields. Please provide both to proceed.",
+		})
+	}
+	resp, err := h.TenantService.CreateToken(ctx.Context(), &req)
+	if err != nil {
+		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(err)
+		} else {
+			return ctx.JSON(500, "an unexpected error occurred"+err.Error())
+		}
+	}
+	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
+		Code:    200,
+		Message: resp.Message,
+		Data:    nil,
+	})
+}

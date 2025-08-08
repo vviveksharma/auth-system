@@ -2,20 +2,23 @@ package services
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/vviveksharma/auth/db"
 	"github.com/vviveksharma/auth/internal/models"
 	"github.com/vviveksharma/auth/internal/repo"
+	"github.com/vviveksharma/auth/internal/utils"
 	dbmodels "github.com/vviveksharma/auth/models"
 )
 
 type TenantService interface {
 	CreateTenant(req *models.CreateTenantRequest) (resp *models.CreateTenantResponse, err error)
 	LoginTenant(req *models.LoginTenantRequest, ip string) (resp *models.LoginTenantResponse, err error)
-	ListTokens(ctx context.Context, token string) ([]*string, error)
+	ListTokens(ctx context.Context, logintoken string) (resp []*models.ListTokensResponse, err error)
 	RevokeToken(ctx context.Context, token string) (resp *models.RevokeTokenResponse, err error)
+	CreateToken(ctx context.Context, req *models.CreateTokenRequest) (*models.CreateTokenResponse, error)
 }
 
 type Tenant struct {
@@ -101,10 +104,12 @@ func (t *Tenant) LoginTenant(req *models.LoginTenantRequest, ip string) (resp *m
 	}
 	token := uuid.New().String()
 	terr := t.TokenRepo.CreateToken(&dbmodels.DBToken{
-		TenantId:  tenantDetails.Id,
-		Token:     token,
-		ExpiresAt: time.Now().Add(120 * time.Minute),
-		IsActive:  true,
+		TenantId:       tenantDetails.Id,
+		Name:           "logintoken" + utils.GenerateRandomString(5),
+		ExpiresAt:      time.Now().Add(120 * time.Minute),
+		IsActive:       true,
+		ApplicationKey: false,
+		CreatedAt:      time.Now(),
 	})
 	if terr != nil {
 		return nil, &dbmodels.ServiceResponse{
@@ -129,23 +134,33 @@ func (t *Tenant) LoginTenant(req *models.LoginTenantRequest, ip string) (resp *m
 	}, nil
 }
 
-func (t *Tenant) ListTokens(ctx context.Context, token string) ([]*string, error) {
-	tenantId, err := t.TokenRepo.GetTenantUsingToken(token)
+func (t *Tenant) ListTokens(ctx context.Context, logintoken string) (resp []*models.ListTokensResponse, err error) {
+	tenantId, err := t.TokenRepo.GetTenantUsingToken(logintoken)
 	if err != nil {
-		return nil, &dbmodels.ServiceResponse{}
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while fetching the tenant details: " + err.Error(),
+		}
 	}
 	dbTokens, err := t.TokenRepo.ListTokens(*tenantId)
 	if err != nil {
-		return nil, &dbmodels.ServiceResponse{}
-	}
-	var tokens []*string
-	for _, dbToken := range dbTokens {
-		if !dbToken.IsActive {
-			continue
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while listing tokens for the given tenant :" + err.Error(),
 		}
-		tokens = append(tokens, &dbToken.Token)
 	}
-	return tokens, nil
+	for _, token := range dbTokens {
+		if token.ApplicationKey {
+			tokenDetails := models.ListTokensResponse{
+				CreateAt:  token.CreatedAt,
+				ExpiresAt: token.ExpiresAt,
+				Name:      token.Name,
+				TokenId:   token.Id,
+			}
+			resp = append(resp, &tokenDetails)
+		}
+	}
+	return resp, nil
 }
 
 func (t *Tenant) RevokeToken(ctx context.Context, token string) (resp *models.RevokeTokenResponse, err error) {
@@ -158,5 +173,49 @@ func (t *Tenant) RevokeToken(ctx context.Context, token string) (resp *models.Re
 	}
 	return &models.RevokeTokenResponse{
 		Message: "Token revoked successfully.",
+	}, nil
+}
+
+func (t *Tenant) CreateToken(ctx context.Context, req *models.CreateTokenRequest) (*models.CreateTokenResponse, error) {
+	tenantId := ctx.Value("tenant_id").(string)
+	tokendata,err := t.TokenRepo.GetTokenDetailsByName(req.Name)
+	if err != nil {
+		if err.Error() != "record not found" {
+			return nil, &dbmodels.ServiceResponse{
+				Code: 500,
+				Message: "error while fetching the token details :" + err.Error(),
+			}
+		}
+	}
+	log.Println("the token data: ",tokendata)
+	if tokendata != nil &&  tokendata.Name == req.Name {
+		return nil, &dbmodels.ServiceResponse{
+			Code: 423,
+			Message: "record already exists please try with another name",
+		}
+	}
+	parsedExpiry, parseErr := time.Parse("2006-01-02", req.ExpiryAt)
+    if parseErr != nil {
+        return nil, &dbmodels.ServiceResponse{
+            Code:    400,
+            Message: "Invalid expiry date format. Please use YYYY-MM-DD.",
+        }
+    }
+	err = t.TokenRepo.CreateToken(&dbmodels.DBToken{
+		TenantId:       uuid.MustParse(tenantId),
+		Name:           req.Name,
+		CreatedAt:      time.Now(),
+		ExpiresAt:      parsedExpiry,
+		ApplicationKey: true,
+		IsActive:       true,
+	})
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "erorr while creating a token: " + err.Error(),
+		}
+	}
+	return &models.CreateTokenResponse{
+		Message: "Token created successfully",
 	}, nil
 }

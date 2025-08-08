@@ -86,11 +86,13 @@ func (*DBTenant) BeforeCreate(tx *gorm.DB) error {
 }
 
 type DBToken struct {
-	Id        uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
-	TenantId  uuid.UUID `gorm:"type:uuid;not null"`
-	Token     string    `json:"token"`
-	ExpiresAt time.Time `gorm:"not null"`
-	IsActive  bool      `json:"is_active"`
+	Id             uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
+	TenantId       uuid.UUID `gorm:"type:uuid;not null"`
+	Name           string    `json:"name"`
+	CreatedAt      time.Time `gorm:"not null"`
+	ExpiresAt      time.Time `gorm:"not null"`
+	IsActive       bool      `json:"is_active"`
+	ApplicationKey bool      `json:"application_key"`
 }
 
 func (DBToken) TableName() string {

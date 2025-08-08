@@ -16,6 +16,7 @@ type TokenRepositoryInterface interface {
 	GetTenantUsingToken(token string) (*uuid.UUID, error)
 	RevokeToken(token string) error
 	VerifyToken(token string) (bool, string, error)
+	GetTokenDetailsByName(name string) (*models.DBToken, error)
 }
 
 type TokenRepository struct {
@@ -82,7 +83,7 @@ func (to *TokenRepository) GetTenantUsingToken(token string) (*uuid.UUID, error)
 	}
 	defer transaction.Rollback()
 	var tokenDetails *models.DBToken
-	id := transaction.Model(&models.DBToken{}).Where("token = ?", token).First(&tokenDetails)
+	id := transaction.Model(&models.DBToken{}).Where("id = ?", uuid.MustParse(token)).First(&tokenDetails)
 	if id.Error != nil {
 		return nil, id.Error
 	}
@@ -112,13 +113,17 @@ func (to *TokenRepository) VerifyToken(token string) (bool, string, error) {
 	}
 	defer transaction.Rollback()
 	var tokenDetails models.DBToken
-	tokenErr := transaction.Model(&models.DBToken{}).Where("token = ?", token).First(&tokenDetails)
+	tokenErr := transaction.Model(&models.DBToken{}).Where("id = ?", uuid.MustParse(token)).First(&tokenDetails)
 	if tokenErr.Error != nil {
 		log.Println("the token details error: ", tokenErr.Error)
 		return false, "", transaction.Error
 	}
 	log.Println("the token details: ", tokenDetails)
 	if tokenDetails.ExpiresAt.Before(time.Now()) {
+		rerr := to.RevokeToken(token)
+		if rerr != nil {
+			return false, "", rerr
+		}
 		return false, "", &models.ServiceResponse{
 			Code:    404,
 			Message: "Token expired please login again",
@@ -130,9 +135,25 @@ func (to *TokenRepository) VerifyToken(token string) (bool, string, error) {
 			Message: "Token has been revoked. Please authenticate again.",
 		}
 	}
-	rerr := to.RevokeToken(token)
-	if rerr != nil {
-		return false, "", rerr
+	if tokenDetails.ApplicationKey {
+		return false, "", &models.ServiceResponse{
+			Code:    423,
+			Message: "cant use application key as tenant login token",
+		}
 	}
 	return true, tokenDetails.TenantId.String(), nil
+}
+
+func (to *TokenRepository) GetTokenDetailsByName(name string) (*models.DBToken, error) {
+	transaction := to.DB.Begin()
+	if transaction.Error != nil {
+		return nil, transaction.Error
+	}
+	defer transaction.Rollback()
+	var tokenDetails *models.DBToken
+	err := transaction.Model(&models.DBToken{}).Where("name = ?" , name).First(&tokenDetails)
+	if err.Error != nil {
+		return nil, err.Error
+	}
+	return tokenDetails, nil
 }

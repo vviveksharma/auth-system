@@ -16,8 +16,8 @@ func Routes(app *fiber.App, h *controllers.Handler, client *redis.Client) {
 
 	auth.Post("/login", h.LoginUser)
 	auth.Put("/refresh", middlewares.JWTMiddleware(), h.RefreshToken)
-	auth.Post("/invite")
-	auth.Put("/resetPassword")
+	// auth.Post("/invite")
+	// auth.Put("/resetPassword")
 
 	user.Get("/me", middlewares.ExtractHeadersMiddleware(), h.GetUserDetails)
 	user.Put("/me", middlewares.ExtractHeadersMiddleware(), h.UpdateUserDetails)
@@ -34,4 +34,5 @@ func Routes(app *fiber.App, h *controllers.Handler, client *redis.Client) {
 	tenant.Get("/tokens", middlewares.TenantMiddleWare(), h.ListTokens)
 	tenant.Put("/tokens/:id", middlewares.TenantMiddleWare(), h.RevokeToken)
 	tenant.Post("/register", middlewares.TenantMiddleWare(), h.CreateUser)
+	tenant.Post("/tokens", middlewares.TenantMiddleWare(), h.CreateToken)
 }

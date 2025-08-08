@@ -62,3 +62,8 @@ type UpdateRolePermissions struct {
 type ResetPasswordRequest struct {
 	Email string `json:"email"`
 }
+
+type CreateTokenRequest struct {
+	Name     string `json:"name"`
+	ExpiryAt string `json:"expiry_at"`
+}
