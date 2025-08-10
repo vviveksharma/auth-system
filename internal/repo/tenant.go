@@ -9,6 +9,7 @@ import (
 type TenantRepositoryInterface interface {
 	CreateTenant(tenant *models.DBTenant) error
 	GetUserByEmail(email string) (tenantDetails *models.DBTenant, err error)
+	UpdateTenatDetailsPassword(tenantId string ,password string) error
 }
 
 type TenantRepository struct {
@@ -67,4 +68,20 @@ func (t *TenantRepository) VerifyTenant(tenantId string) (bool, error) {
 		Code:    400,
 		Message: "no tenant found with this id",
 	}
+}
+
+func (t *TenantRepository) UpdateTenatDetailsPassword(tenantId string ,password string) error {
+	transaction := t.DB.Begin()
+	if transaction.Error != nil {
+		return transaction.Error
+	}
+	defer transaction.Rollback()
+	updateErr := transaction.Model(&models.DBTenant{}).Where("id = ? ", uuid.MustParse(tenantId)).Updates(map[string]any{
+		"password": password,
+	})
+	if updateErr.Error != nil {
+		return updateErr.Error
+	}
+	transaction.Commit()
+	return nil
 }

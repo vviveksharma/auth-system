@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -18,10 +19,12 @@ type UserService interface {
 	UpdateUserDetails(req *models.UpdateUserRequest, userId string) (*models.UpdateUserResponse, error)
 	GetUserById(userId string) (*models.GetUserByIdResponse, error)
 	AssignUserRole(req *models.AssignRoleRequest, userId string) (*models.AssignRoleResponse, error)
+	RegisterUser(req *models.UserRequest, ctx context.Context) (*models.UserResponse, error)
 }
 
 type User struct {
 	UserRepo       repo.UserRepositoryInterface
+	TokenRepo      repo.TokenRepository
 	ResetTokenRepo repo.ResetTokenRepositoryInterface
 }
 
@@ -42,11 +45,11 @@ func (u *User) SetupRepo() error {
 	}
 	u.UserRepo = user
 
-	token, err := repo.NewResetTokenRepository(db.DB)
+	rtoken, err := repo.NewResetTokenRepository(db.DB)
 	if err != nil {
 		return err
 	}
-	u.ResetTokenRepo = token
+	u.ResetTokenRepo = rtoken
 	return nil
 }
 
@@ -89,6 +92,49 @@ func (u *User) CreateUser(req *models.UserRequest) (*models.UserResponse, error)
 	}
 	return &models.UserResponse{
 		Message: "user created succesfuly with email " + req.Email,
+	}, nil
+}
+
+func (u *User) RegisterUser(req *models.UserRequest, ctx context.Context) (*models.UserResponse, error) {
+	tenantId := ctx.Value("tenant_id").(string)
+	userDetails, err := u.UserRepo.GetUserByEmail(req.Email)
+	if err != nil {
+		if err.Error() != "record not found" {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    500,
+				Message: "error while fetching the user details: " + err.Error(),
+			}
+		}
+	}
+	if userDetails != nil && userDetails.Email == req.Email {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    423,
+			Message: "this user already exist proceed to login",
+		}
+	}
+	hashedpassword, salt, err := utils.GeneratePasswordHash(req.Password, utils.DefaultParams)
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while generating the password for the user",
+		}
+	}
+	err = u.UserRepo.CreateUser(&dbmodels.DBUser{
+		TenantId: uuid.MustParse(tenantId),
+		Name:     req.Name,
+		Email:    req.Email,
+		Password: hashedpassword,
+		Salt:     salt,
+		Roles:    []string{"guest"},
+	})
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while registering the user: " + err.Error(),
+		}
+	}
+	return &models.UserResponse{
+		Message: "user registered successfully",
 	}, nil
 }
 

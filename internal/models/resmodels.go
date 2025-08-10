@@ -80,3 +80,11 @@ type ListTokensResponse struct {
 type CreateTokenResponse struct {
 	Message string `json:"message"`
 }
+
+type ResetPasswordTenantResponse struct {
+	Message string `json:"message"`
+}
+
+type SetTenantPasswordResponse struct {
+	Message string `json:"message"`
+}

@@ -20,6 +20,7 @@ func Routes(app *fiber.App, h *controllers.Handler, client *redis.Client) {
 	// auth.Put("/resetPassword")
 
 	user.Get("/me", middlewares.ExtractHeadersMiddleware(), h.GetUserDetails)
+	user.Post("/", middlewares.GetTenantFromToken(), h.RegisterUser)
 	user.Put("/me", middlewares.ExtractHeadersMiddleware(), h.UpdateUserDetails)
 	user.Get("/:id", middlewares.ExtractRoleIdMiddleware(), h.GetUserByIdDetails)
 	user.Put("/:id/roles", middlewares.ExtractRoleIdMiddleware(), h.AssignUserRole)
@@ -35,4 +36,6 @@ func Routes(app *fiber.App, h *controllers.Handler, client *redis.Client) {
 	tenant.Put("/tokens/:id", middlewares.TenantMiddleWare(), h.RevokeToken)
 	tenant.Post("/register", middlewares.TenantMiddleWare(), h.CreateUser)
 	tenant.Post("/tokens", middlewares.TenantMiddleWare(), h.CreateToken)
+	tenant.Post("/reset", middlewares.TenantMiddleWare(), h.ResetPassword)
+	tenant.Put("/setpassword", middlewares.TenantMiddleWare(), h.SetPassword)
 }

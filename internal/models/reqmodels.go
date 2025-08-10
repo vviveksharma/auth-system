@@ -67,3 +67,13 @@ type CreateTokenRequest struct {
 	Name     string `json:"name"`
 	ExpiryAt string `json:"expiry_at"`
 }
+
+type ResetTenantPasswordRequest struct {
+	Email string `json:"email"`
+}
+
+type SetTenantPasswordRequest struct {
+	Email              string `json:"email"`
+	NewPassword        string `json:"new_password"`
+	ConfirmNewPassword string `json:"confirm_new_password"`
+}

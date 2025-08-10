@@ -3,7 +3,6 @@ package utils
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	mathrand "math/rand"
 	"os"
@@ -94,7 +93,7 @@ func ComparePassword(password, storedHashBase64, storedSaltBase64 string, p *Arg
 	if newHashBase64 == storedHashBase64 {
 		return true, nil
 	}
-	return false, errors.New("password does not match")
+	return false, nil
 }
 
 func ConvertTime(input string) time.Time {
@@ -114,4 +113,14 @@ func GenerateRandomString(length int) string {
 		b[i] = charset[mathrand.Intn(len(charset))]
 	}
 	return string(b)
+}
+
+func GeneratePassword(password string, p *Argon2Params, salt string) (string, error) {
+	decodeSalt, err := base64.RawStdEncoding.DecodeString(salt)
+	if err != nil {
+		return  "", err
+	}
+	hash := argon2.IDKey([]byte(password), decodeSalt, p.Iterations, p.Memory, p.Parallelism, p.KeyLength)
+	hashBase64 := base64.RawStdEncoding.EncodeToString(hash)
+	return hashBase64, nil
 }

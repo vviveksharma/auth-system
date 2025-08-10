@@ -23,10 +23,15 @@ type MailService struct {
 	Config SMTPConfig
 }
 
-func NewMailService() *MailService {
+type MailServiceInterface interface {
+	SendEmail(req *EmailRequest) error
+	SendEmailWithTemplate(to, subject, templateName string, data map[string]interface{}) error
+}
+
+func NewMailService() MailServiceInterface {
 	return &MailService{
 		Config: SMTPConfig{
-			Host:     "localhost",
+			Host:     "mailpit",
 			Port:     "1025",
 			Username: "",
 			Password: "",
@@ -92,7 +97,7 @@ func (m *MailService) generateEmailBody(templateName string, data map[string]int
 				<h2>Password Reset Request</h2>
 				<p>Hi %s,</p>
 				<p>You requested a password reset. Click the link below to reset your password:</p>
-				<a href="%s">Reset Password</a>
+				<a href="%s">Set New Password</a>
 				<p>If you didn't request this, please ignore this email.</p>
 			</body>
 			</html>

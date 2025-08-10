@@ -128,3 +128,44 @@ func (h *Handler) AssignUserRole(ctx *fiber.Ctx) error {
 		Message: resp.Message,
 	})
 }
+
+// @Summary Register a new user
+// @Description Registers a new user under a tenant.
+// @Tags User
+// @Accept json
+// @Produce json
+// @Param request body models.UserRequest true "User registration request"
+// @Success 200 {object} models.UserResponse
+// @Failure 423 {object} dbmodels.ServiceResponse
+// @Failure 500 {object} dbmodels.ServiceResponse
+// @Router /user/register [post]
+func (h *Handler) RegisterUser(ctx *fiber.Ctx) error {
+	var req *models.UserRequest
+	err := ctx.BodyParser(&req)
+	if err != nil {
+		log.Println("Error in parsing the request Body" + err.Error())
+		return &dbmodels.ServiceResponse{
+			Code:    fiber.StatusBadGateway,
+			Message: "error while parsing the requestBody: " + err.Error(),
+		}
+	}
+	if req.Email == "" || req.Name == "" || req.Password == "" {
+		log.Println("the requestBody: ", req)
+		return &dbmodels.ServiceResponse{
+			Code:    fiber.StatusBadRequest,
+			Message: "either name or type is missing in the request Body",
+		}
+	}
+	resp, err := h.UserService.RegisterUser(req, ctx.Context())
+	if err != nil {
+		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(err)
+		} else {
+			return ctx.JSON(500, "an unexpected error occurred")
+		}
+	}
+	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
+		Code:    200,
+		Message: resp.Message,
+	})
+}

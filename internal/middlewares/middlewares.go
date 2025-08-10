@@ -86,3 +86,30 @@ func TenantMiddleWare() fiber.Handler {
 		return c.Next()
 	}
 }
+
+func GetTenantFromToken() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		token := c.Query("application_key")
+		if token == "" {
+			return &models.ServiceResponse{
+				Code:    400,
+				Message: "A valid tenant-generated token is required for every request. Please provide the application_key parameter, or register as a tenant if you are the owner.",
+			}
+		}
+		Newtoken, err := repo.NewTokenRepository(db.DB)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(models.ServiceResponse{
+				Code:    500,
+				Message: "error while connecting to db repositry",
+			})
+		}
+		resp, tenant_id, err := Newtoken.VerifyToken(token)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(err)
+		}
+		if resp {
+			c.Locals("tenant_id", tenant_id)
+		}
+		return nil
+	}
+}

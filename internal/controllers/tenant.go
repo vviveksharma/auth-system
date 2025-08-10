@@ -142,3 +142,66 @@ func (h *Handler) CreateToken(ctx *fiber.Ctx) error {
 		Data:    nil,
 	})
 }
+
+func (h *Handler) ResetPassword(ctx *fiber.Ctx) error {
+	var req models.ResetTenantPasswordRequest
+	err := ctx.BodyParser(&req)
+	if err != nil {
+		log.Printf("Failed to parse login request body: %v", err)
+		return ctx.Status(fiber.StatusBadRequest).JSON(dbmodels.ServiceResponse{
+			Code:    fiber.StatusBadRequest,
+			Message: "Invalid request payload. Please ensure the request body is properly formatted.",
+		})
+	}
+	if req.Email == "" {
+		return ctx.Status(fiber.StatusBadRequest).JSON(dbmodels.ServiceResponse{
+			Code:    fiber.StatusBadRequest,
+			Message: "Email are required fields. Please provide both to proceed.",
+		})
+	}
+	resp, err := h.TenantService.ResetPassword(ctx.Context(), &req)
+	if err != nil {
+		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(err)
+		} else {
+			return ctx.JSON(500, "an unexpected error occurred"+err.Error())
+		}
+	}
+	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
+		Code:    200,
+		Message: resp.Message,
+		Data:    nil,
+	})
+}
+
+func (h *Handler) SetPassword(ctx *fiber.Ctx) error {
+	var req models.SetTenantPasswordRequest
+	err := ctx.BodyParser(&req)
+	if err != nil {
+		log.Printf("Failed to parse login request body: %v", err)
+		return ctx.Status(fiber.StatusBadRequest).JSON(dbmodels.ServiceResponse{
+			Code:    fiber.StatusBadRequest,
+			Message: "Invalid request payload. Please ensure the request body is properly formatted.",
+		})
+	}
+	if req.NewPassword == "" || req.ConfirmNewPassword == "" {
+		log.Printf("Create token attempt failed: %+v", req)
+		return ctx.Status(fiber.StatusBadRequest).JSON(dbmodels.ServiceResponse{
+			Code:    fiber.StatusBadRequest,
+			Message: "NewPassword and ConfirmNewPassword are required fields. Please provide both to proceed.",
+		})
+	}
+	resp, err := h.TenantService.SetPassword(ctx.Context(), &req)
+	if err != nil {
+		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(err)
+		} else {
+			return ctx.JSON(500, "an unexpected error occurred"+err.Error())
+		}
+	}
+	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
+		Code:    200,
+		Message: resp.Message,
+		Data:    nil,
+	})
+}

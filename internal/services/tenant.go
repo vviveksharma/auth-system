@@ -11,6 +11,7 @@ import (
 	"github.com/vviveksharma/auth/internal/repo"
 	"github.com/vviveksharma/auth/internal/utils"
 	dbmodels "github.com/vviveksharma/auth/models"
+	smtpservice "github.com/vviveksharma/auth/smtp-service"
 )
 
 type TenantService interface {
@@ -19,12 +20,15 @@ type TenantService interface {
 	ListTokens(ctx context.Context, logintoken string) (resp []*models.ListTokensResponse, err error)
 	RevokeToken(ctx context.Context, token string) (resp *models.RevokeTokenResponse, err error)
 	CreateToken(ctx context.Context, req *models.CreateTokenRequest) (*models.CreateTokenResponse, error)
+	ResetPassword(ctx context.Context, req *models.ResetTenantPasswordRequest) (*models.ResetPasswordTenantResponse, error)
+	SetPassword(ctx context.Context, req *models.SetTenantPasswordRequest) (*models.SetTenantPasswordResponse, error)
 }
 
 type Tenant struct {
 	TenantRepo      repo.TenantRepositoryInterface
 	TokenRepo       repo.TokenRepositoryInterface
 	TenantLoginRepo repo.TenantLoginRepositoryInterface
+	EmailService    smtpservice.MailServiceInterface
 }
 
 func NewTenantService() (TenantService, error) {
@@ -33,6 +37,8 @@ func NewTenantService() (TenantService, error) {
 	if err != nil {
 		return nil, err
 	}
+	emailService := smtpservice.NewMailService()
+	ser.EmailService = emailService
 	return ser, nil
 }
 
@@ -64,11 +70,20 @@ func (t *Tenant) CreateTenant(req *models.CreateTenantRequest) (resp *models.Cre
 			Message: "error while checking the tenant details: " + err.Error(),
 		}
 	}
+	// adding the hashing password
+	hashedPassword, salt, err := utils.GeneratePasswordHash(req.Password, utils.DefaultParams)
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while hashing the password while creating the tenant: " + err.Error(),
+		}
+	}
 	err = t.TenantRepo.CreateTenant(&dbmodels.DBTenant{
 		Name:     req.Name,
 		Email:    req.Email,
 		Campany:  req.Campany,
-		Password: req.Password,
+		Password: hashedPassword,
+		Salt:     salt,
 	})
 	if err != nil {
 		return nil, &dbmodels.ServiceResponse{
@@ -87,19 +102,26 @@ func (t *Tenant) LoginTenant(req *models.LoginTenantRequest, ip string) (resp *m
 		if err.Error() == "record not found" {
 			return nil, &dbmodels.ServiceResponse{
 				Code:    404,
-				Message: "user with name doesnot exist",
+				Message: "Tenant with the specified email does not exist.",
 			}
 		} else {
 			return nil, &dbmodels.ServiceResponse{
 				Code:    500,
-				Message: "error while creating the userdetails: " + err.Error(),
+				Message: "An error occurred while retrieving tenant details: " + err.Error(),
 			}
 		}
 	}
-	if req.Password != tenantDetails.Password {
+	checkPassword, err := utils.ComparePassword(req.Password, tenantDetails.Password, tenantDetails.Salt, utils.DefaultParams)
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "An error occurred while verifying the password: " + err.Error(),
+		}
+	}
+	if !checkPassword {
 		return nil, &dbmodels.ServiceResponse{
 			Code:    401,
-			Message: "invalid email or password",
+			Message: "The provided password is incorrect. Please try again.",
 		}
 	}
 	token := uuid.New().String()
@@ -114,7 +136,22 @@ func (t *Tenant) LoginTenant(req *models.LoginTenantRequest, ip string) (resp *m
 	if terr != nil {
 		return nil, &dbmodels.ServiceResponse{
 			Code:    500,
-			Message: "error while creating a token: " + terr.Error(),
+			Message: "Failed to create authentication token: " + terr.Error(),
+		}
+	}
+	//Create a default application token
+	defaultTokenErr := t.TokenRepo.CreateToken(&dbmodels.DBToken{
+		TenantId:       tenantDetails.Id,
+		Name:           "defaultToken",
+		ExpiresAt:      time.Now().Add(120 * time.Minute),
+		IsActive:       true,
+		ApplicationKey: true,
+		CreatedAt:      time.Now(),
+	})
+	if defaultTokenErr != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "Failed to create authentication token: " + defaultTokenErr.Error(),
 		}
 	}
 	tlerr := t.TenantLoginRepo.Create(&dbmodels.DBTenantLogin{
@@ -126,7 +163,7 @@ func (t *Tenant) LoginTenant(req *models.LoginTenantRequest, ip string) (resp *m
 	if tlerr != nil {
 		return nil, &dbmodels.ServiceResponse{
 			Code:    500,
-			Message: "error while creating tenant login: " + tlerr.Error(),
+			Message: "Failed to create tenant login record: " + tlerr.Error(),
 		}
 	}
 	return &models.LoginTenantResponse{
@@ -178,29 +215,29 @@ func (t *Tenant) RevokeToken(ctx context.Context, token string) (resp *models.Re
 
 func (t *Tenant) CreateToken(ctx context.Context, req *models.CreateTokenRequest) (*models.CreateTokenResponse, error) {
 	tenantId := ctx.Value("tenant_id").(string)
-	tokendata,err := t.TokenRepo.GetTokenDetailsByName(req.Name)
+	tokendata, err := t.TokenRepo.GetTokenDetailsByName(req.Name)
 	if err != nil {
 		if err.Error() != "record not found" {
 			return nil, &dbmodels.ServiceResponse{
-				Code: 500,
+				Code:    500,
 				Message: "error while fetching the token details :" + err.Error(),
 			}
 		}
 	}
-	log.Println("the token data: ",tokendata)
-	if tokendata != nil &&  tokendata.Name == req.Name {
+	log.Println("the token data: ", tokendata)
+	if tokendata != nil && tokendata.Name == req.Name {
 		return nil, &dbmodels.ServiceResponse{
-			Code: 423,
+			Code:    423,
 			Message: "record already exists please try with another name",
 		}
 	}
 	parsedExpiry, parseErr := time.Parse("2006-01-02", req.ExpiryAt)
-    if parseErr != nil {
-        return nil, &dbmodels.ServiceResponse{
-            Code:    400,
-            Message: "Invalid expiry date format. Please use YYYY-MM-DD.",
-        }
-    }
+	if parseErr != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    400,
+			Message: "Invalid expiry date format. Please use YYYY-MM-DD.",
+		}
+	}
 	err = t.TokenRepo.CreateToken(&dbmodels.DBToken{
 		TenantId:       uuid.MustParse(tenantId),
 		Name:           req.Name,
@@ -217,5 +254,80 @@ func (t *Tenant) CreateToken(ctx context.Context, req *models.CreateTokenRequest
 	}
 	return &models.CreateTokenResponse{
 		Message: "Token created successfully",
+	}, nil
+}
+
+func (t *Tenant) ResetPassword(ctx context.Context, req *models.ResetTenantPasswordRequest) (*models.ResetPasswordTenantResponse, error) {
+	tenantDetails, err := t.TenantRepo.GetUserByEmail(req.Email)
+	if err != nil {
+		if err.Error() == "record not found" {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    404,
+				Message: "tenant with this email doesnot exist",
+			}
+		} else {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    500,
+				Message: "error while fetching the tenant details: " + err.Error(),
+			}
+		}
+	}
+	log.Println(tenantDetails)
+	emailErr := t.EmailService.SendEmailWithTemplate(req.Email, "Reset Your Password", "password_reset", map[string]interface{}{
+		"name":       tenantDetails.Name,
+		"reset_link": "http://localhost:8080/tenant/setpassword",
+	})
+	if emailErr != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while sending email to the user: " + emailErr.Error(),
+		}
+	}
+	return &models.ResetPasswordTenantResponse{
+		Message: "Email sent successfully to email " + req.Email,
+	}, nil
+}
+
+func (t *Tenant) SetPassword(ctx context.Context, req *models.SetTenantPasswordRequest) (*models.SetTenantPasswordResponse, error) {
+	tenantDetails, err := t.TenantRepo.GetUserByEmail(req.Email)
+	if err != nil {
+		if err.Error() == "record not found" {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    404,
+				Message: "Tenant with the specified email does not exist.",
+			}
+		} else {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    500,
+				Message: "An error occurred while retrieving tenant details: " + err.Error(),
+			}
+		}
+	}
+	hashedPassword, err := utils.GeneratePassword(req.NewPassword, utils.DefaultParams, tenantDetails.Salt)
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "An error occurred while generating the new password hash: " + err.Error(),
+		}
+	}
+	log.Println("the stored the hashed password: ", tenantDetails.Password)
+	log.Println("the generated one: ", hashedPassword)
+	// Ensure the new password is different from the old password
+	if hashedPassword == tenantDetails.Password {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    423,
+			Message: "The new password cannot be the same as the current password.",
+		}
+	}
+	// Update the password in the database
+	err = t.TenantRepo.UpdateTenatDetailsPassword(tenantDetails.Id.String(), hashedPassword)
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "An error occurred while updating the password: " + err.Error(),
+		}
+	}
+	return &models.SetTenantPasswordResponse{
+		Message: "Password has been updated successfully.",
 	}, nil
 }

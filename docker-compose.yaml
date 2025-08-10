@@ -35,6 +35,8 @@ services:
       - "8025:8025"
     environment:
       - MP_SMTP_AUTH_ALLOW_INSECURE=true
+    networks:
+      - mynetwork
 
   app:
     build:

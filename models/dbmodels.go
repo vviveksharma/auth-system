@@ -71,6 +71,7 @@ type DBTenant struct {
 	Id       uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
 	Name     string    `json:"name"`
 	Email    string    `json:"email"`
+	Salt     string    `json:"salt"`
 	Campany  string    `json:"campany"`
 	Password string    `json:"password"`
 }
