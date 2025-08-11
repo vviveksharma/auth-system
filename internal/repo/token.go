@@ -96,7 +96,7 @@ func (to *TokenRepository) RevokeToken(token string) error {
 		return transaction.Error
 	}
 	defer transaction.Rollback()
-	err := transaction.Model(&models.DBToken{}).Where("token = ?", token).Updates(map[string]interface{}{
+	err := transaction.Model(&models.DBToken{}).Where("id = ?", uuid.MustParse(token)).Updates(map[string]interface{}{
 		"is_active": false,
 	})
 	if err != nil {

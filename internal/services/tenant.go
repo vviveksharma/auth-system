@@ -200,8 +200,8 @@ func (t *Tenant) ListTokens(ctx context.Context, logintoken string) (resp []*mod
 	return resp, nil
 }
 
-func (t *Tenant) RevokeToken(ctx context.Context, token string) (resp *models.RevokeTokenResponse, err error) {
-	err = t.TokenRepo.RevokeToken(token)
+func (t *Tenant) RevokeToken(ctx context.Context, tokenId string) (resp *models.RevokeTokenResponse, err error) {
+	err = t.TokenRepo.RevokeToken(tokenId)
 	if err != nil {
 		return nil, &dbmodels.ServiceResponse{
 			Code:    500,
