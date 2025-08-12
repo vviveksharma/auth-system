@@ -11,7 +11,7 @@ import (
 
 type TokenRepositoryInterface interface {
 	CreateToken(token *models.DBToken) error
-	UpdateToken(tenantid uuid.UUID) (string, error)
+	UpdateLoginToken(tenantid uuid.UUID) (*uuid.UUID, error)
 	ListTokens(tenantid uuid.UUID) (resp []*models.DBToken, err error)
 	GetTenantUsingToken(token string) (*uuid.UUID, error)
 	RevokeToken(token string) error
@@ -41,25 +41,27 @@ func (to *TokenRepository) CreateToken(token *models.DBToken) error {
 	return nil
 }
 
-func (to *TokenRepository) UpdateToken(tenantid uuid.UUID) (string, error) {
+func (to *TokenRepository) UpdateLoginToken(tenantid uuid.UUID) (*uuid.UUID, error) {
 	transaction := to.DB.Begin()
 	if transaction.Error != nil {
-		return "", transaction.Error
+		return nil, transaction.Error
 	}
 	defer transaction.Rollback()
 	var tokenDetails *models.DBToken
-	token := transaction.Model(&models.DBToken{}).Where("tenant_id = ?", tenantid).First(&tokenDetails)
+	token := transaction.Model(&models.DBToken{}).Where(&models.DBToken{TenantId: tenantid, ApplicationKey: false}).First(&tokenDetails)
 	if token.Error != nil {
-		return "", token.Error
+		return nil, token.Error
 	}
-	newToken := uuid.New().String()
-	if err := transaction.Model(&models.DBToken{}).Where("tenant_id = ?", tenantid).Updates(map[string]interface{}{
-		"token": newToken,
+	newToken := uuid.New()
+	if err := transaction.Model(&models.DBToken{}).Where(&models.DBToken{Id: tokenDetails.Id}).Updates(map[string]interface{}{
+		"id":         newToken,
+		"created_at": time.Now(),
+		"expiry_at":  time.Now().Add(24 * time.Hour),
 	}).Error; err != nil {
-		return "", err
+		return nil, err
 	}
 	transaction.Commit()
-	return newToken, nil
+	return &newToken, nil
 
 }
 
@@ -151,7 +153,7 @@ func (to *TokenRepository) GetTokenDetailsByName(name string) (*models.DBToken, 
 	}
 	defer transaction.Rollback()
 	var tokenDetails *models.DBToken
-	err := transaction.Model(&models.DBToken{}).Where("name = ?" , name).First(&tokenDetails)
+	err := transaction.Model(&models.DBToken{}).Where("name = ?", name).First(&tokenDetails)
 	if err.Error != nil {
 		return nil, err.Error
 	}

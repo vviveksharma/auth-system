@@ -266,5 +266,8 @@ func (u *User) ResetPassword(req *models.ResetPasswordRequest) (*models.ResetPas
 			Message: fmt.Sprintf("failed to generate password reset token for user '%s': %s", req.Email, tokenErr.Error()),
 		}
 	}
-	return &models.ResetPasswordResponse{}, nil
+	// sending the email as an token
+	return &models.ResetPasswordResponse{
+		Message: "reset email sent successfully",
+	}, nil
 }

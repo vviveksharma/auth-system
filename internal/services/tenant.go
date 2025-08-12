@@ -111,6 +111,15 @@ func (t *Tenant) LoginTenant(req *models.LoginTenantRequest, ip string) (resp *m
 			}
 		}
 	}
+	tenantLoginDetails, err := t.TenantLoginRepo.GetDetailsByEmail(req.Email)
+	if err != nil {
+		if err.Error() != "record not found" {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    500,
+				Message: "An error occurred while retrieving tenant login details: " + err.Error(),
+			}
+		}
+	}
 	checkPassword, err := utils.ComparePassword(req.Password, tenantDetails.Password, tenantDetails.Salt, utils.DefaultParams)
 	if err != nil {
 		return nil, &dbmodels.ServiceResponse{
@@ -125,46 +134,57 @@ func (t *Tenant) LoginTenant(req *models.LoginTenantRequest, ip string) (resp *m
 		}
 	}
 	token := uuid.New().String()
-	terr := t.TokenRepo.CreateToken(&dbmodels.DBToken{
-		TenantId:       tenantDetails.Id,
-		Name:           "logintoken" + utils.GenerateRandomString(5),
-		ExpiresAt:      time.Now().Add(120 * time.Minute),
-		IsActive:       true,
-		ApplicationKey: false,
-		CreatedAt:      time.Now(),
-	})
-	if terr != nil {
-		return nil, &dbmodels.ServiceResponse{
-			Code:    500,
-			Message: "Failed to create authentication token: " + terr.Error(),
+	if tenantLoginDetails == nil {
+		terr := t.TokenRepo.CreateToken(&dbmodels.DBToken{
+			TenantId:       tenantDetails.Id,
+			Name:           "logintoken" + utils.GenerateRandomString(5),
+			ExpiresAt:      time.Now().Add(120 * time.Minute),
+			IsActive:       true,
+			ApplicationKey: false,
+			CreatedAt:      time.Now(),
+		})
+		if terr != nil {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    500,
+				Message: "Failed to create authentication token: " + terr.Error(),
+			}
 		}
-	}
-	//Create a default application token
-	defaultTokenErr := t.TokenRepo.CreateToken(&dbmodels.DBToken{
-		TenantId:       tenantDetails.Id,
-		Name:           "defaultToken",
-		ExpiresAt:      time.Now().Add(120 * time.Minute),
-		IsActive:       true,
-		ApplicationKey: true,
-		CreatedAt:      time.Now(),
-	})
-	if defaultTokenErr != nil {
-		return nil, &dbmodels.ServiceResponse{
-			Code:    500,
-			Message: "Failed to create authentication token: " + defaultTokenErr.Error(),
+		//Create a default application token
+		defaultTokenErr := t.TokenRepo.CreateToken(&dbmodels.DBToken{
+			TenantId:       tenantDetails.Id,
+			Name:           "defaultToken",
+			ExpiresAt:      time.Now().Add(120 * time.Minute),
+			IsActive:       true,
+			ApplicationKey: true,
+			CreatedAt:      time.Now(),
+		})
+		if defaultTokenErr != nil {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    500,
+				Message: "Failed to create authentication token: " + defaultTokenErr.Error(),
+			}
 		}
-	}
-	tlerr := t.TenantLoginRepo.Create(&dbmodels.DBTenantLogin{
-		TenantId:  tenantDetails.Id,
-		ExpiresAt: time.Now().Add(24 * time.Hour),
-		IsActive:  true,
-		IPAddress: ip,
-	})
-	if tlerr != nil {
-		return nil, &dbmodels.ServiceResponse{
-			Code:    500,
-			Message: "Failed to create tenant login record: " + tlerr.Error(),
+		tlerr := t.TenantLoginRepo.Create(&dbmodels.DBTenantLogin{
+			TenantId:  tenantDetails.Id,
+			ExpiresAt: time.Now().Add(24 * time.Hour),
+			IsActive:  true,
+			IPAddress: ip,
+		})
+		if tlerr != nil {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    500,
+				Message: "Failed to create tenant login record: " + tlerr.Error(),
+			}
 		}
+	} else {
+		newToken, err := t.TokenRepo.UpdateLoginToken(tenantDetails.Id)
+		if err != nil {
+			return nil, &dbmodels.ServiceResponse{
+				Code: 500,
+				Message: "Failed to update the login token: "+ err.Error(),
+			}
+		}
+		token = newToken.String()
 	}
 	return &models.LoginTenantResponse{
 		Token: token,

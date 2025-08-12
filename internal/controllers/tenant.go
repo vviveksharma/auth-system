@@ -14,7 +14,7 @@ func (h *Handler) CreateTenant(ctx *fiber.Ctx) error {
 	if err != nil {
 		log.Println("Error in parsing the request Body" + err.Error())
 		return &dbmodels.ServiceResponse{
-			Code:    fiber.StatusBadGateway,
+			Code:    fiber.StatusUnprocessableEntity,
 			Message: "error while parsing the requestBody: " + err.Error(),
 		}
 	}

@@ -11,7 +11,6 @@ import (
 	"github.com/vviveksharma/auth/initsetup"
 	"github.com/vviveksharma/auth/internal/controllers"
 	"github.com/vviveksharma/auth/internal/services"
-	"github.com/vviveksharma/auth/limiter"
 	"github.com/vviveksharma/auth/routes"
 )
 
@@ -31,7 +30,7 @@ func Init() {
 	//Create Roles in the db
 	initsetup.InitRoles()
 
-	app.Use(limiter.RateLimiter(client))
+	// app.Use(limiter.RateLimiter(client))
 
 	userService, err := services.NewUserService()
 	if err != nil {

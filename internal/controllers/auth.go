@@ -9,13 +9,26 @@ import (
 	dbmodels "github.com/vviveksharma/auth/models"
 )
 
+// LoginUser handles user login requests.
+//
+// @Summary      User Login
+// @Description  Authenticates a user and returns a JWT token upon successful login.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body      models.UserLoginRequest  true  "User login credentials"
+// @Success      200   {object}  dbmodels.ServiceResponse "JWT token and success message"
+// @Failure      400   {object}  dbmodels.ServiceResponse "Invalid credentials or missing fields"
+// @Failure      502   {object}  dbmodels.ServiceResponse "Error while parsing the request body"
+// @Failure      500   {object}  dbmodels.ServiceResponse "Unexpected server error"
+// @Router       /login [post]
 func (h *Handler) LoginUser(ctx *fiber.Ctx) error {
 	var req models.UserLoginRequest
 	err := ctx.BodyParser(&req)
 	if err != nil {
 		log.Println("Error in parsing the request Body" + err.Error())
 		return &dbmodels.ServiceResponse{
-			Code:    fiber.StatusBadGateway,
+			Code:    fiber.StatusUnprocessableEntity,
 			Message: "error while parsing the requestBody: " + err.Error(),
 		}
 	}
@@ -46,6 +59,15 @@ func (h *Handler) LoginUser(ctx *fiber.Ctx) error {
 	})
 }
 
+// RefreshToken refreshes the JWT token for an authenticated user.
+//
+// @Summary      Refresh JWT Token
+// @Description  Refreshes and returns a new JWT token for the authenticated user.
+// @Tags         auth
+// @Produce      json
+// @Success      200  {object}  dbmodels.ServiceResponse "Refreshed JWT token and success message"
+// @Failure      500  {object}  dbmodels.ServiceResponse "Unexpected server error"
+// @Router       /refresh-token [post]
 func (h *Handler) RefreshToken(ctx *fiber.Ctx) error {
 	claims := ctx.Locals("authClaims").(jwt.MapClaims)
 	userId := claims["user_id"]

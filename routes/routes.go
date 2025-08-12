@@ -3,12 +3,17 @@ package routes
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/redis/go-redis/v9"
+	fiberSwagger "github.com/swaggo/fiber-swagger"
 	"github.com/vviveksharma/auth/internal/controllers"
 	"github.com/vviveksharma/auth/internal/middlewares"
+	_ "github.com/vviveksharma/auth/docs"
 )
 
 func Routes(app *fiber.App, h *controllers.Handler, client *redis.Client) {
 	app.Get("/health", h.Welcome)
+	// Make sure you have run `swag init` to generate docs and imported the docs package
+	// import _ "github.com/vviveksharma/auth/docs"
+	app.Get("/swagger/*", fiberSwagger.WrapHandler)
 	auth := app.Group("/auth")
 	user := app.Group("/user")
 	role := app.Group("/roles")

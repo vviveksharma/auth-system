@@ -7,6 +7,7 @@ import (
 
 type TenantLoginRepositoryInterface interface {
 	Create(req *models.DBTenantLogin) error
+	GetDetailsByEmail(email string) (*models.DBTenantLogin, error)
 }
 
 type TenantLoginRepository struct {
@@ -29,4 +30,18 @@ func (tl *TenantLoginRepository) Create(req *models.DBTenantLogin) error {
 	}
 	transaction.Commit()
 	return nil
+}
+
+func (tl *TenantLoginRepository) GetDetailsByEmail(email string) (*models.DBTenantLogin, error) {
+	transaction := tl.DB.Begin()
+	if transaction.Error != nil {
+		return nil, transaction.Error
+	}
+	defer transaction.Rollback()
+	var resp *models.DBTenantLogin
+	err := transaction.Where("email = ? ", email).First(&resp)
+	if err.Error != nil {
+		return nil, err.Error
+	}
+	return resp, nil
 }
