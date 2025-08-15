@@ -18,10 +18,11 @@ type AuthService interface {
 }
 
 type Auth struct {
-	UserRepo    repo.UserRepositoryInterface
-	LoginRepo   repo.LoginRepositoryInterface
-	RoleRepo    repo.RoleRepositoryInterface
-	RedisClient *redis.Client
+	UserRepo       repo.UserRepositoryInterface
+	LoginRepo      repo.LoginRepositoryInterface
+	RoleRepo       repo.RoleRepositoryInterface
+	ResetTokenRepo repo.ResetTokenRepositoryInterface
+	RedisClient    *redis.Client
 }
 
 func NewAuthService(client *redis.Client) (AuthService, error) {
@@ -51,6 +52,11 @@ func (a *Auth) SetupRepo() error {
 		return err
 	}
 	a.RoleRepo = role
+	rToken, err := repo.NewResetTokenRepository(db.DB)
+	if err != nil {
+		return err
+	}
+	a.ResetTokenRepo = rToken
 	return nil
 }
 

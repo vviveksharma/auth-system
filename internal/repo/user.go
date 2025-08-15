@@ -16,6 +16,7 @@ type UserRepositoryInterface interface {
 	GetUserByEmail(email string) (userDetails *models.DBUser, err error)
 	UpdateUserFields(userID uuid.UUID, input *dbmodels.UpdateUserRequest) error
 	UpdateUserRoles(userId uuid.UUID, role string) error
+	UpdatePassword(userId uuid.UUID, password string) error
 }
 
 type UserRepository struct {
@@ -74,8 +75,8 @@ func (ur *UserRepository) GetUserByEmail(email string) (userDetails *models.DBUs
 	return userDetails, nil
 }
 
-func (r *UserRepository) UpdateUserFields(userID uuid.UUID, input *dbmodels.UpdateUserRequest) error {
-	tx := r.DB.Begin()
+func (ur *UserRepository) UpdateUserFields(userID uuid.UUID, input *dbmodels.UpdateUserRequest) error {
+	tx := ur.DB.Begin()
 	if tx.Error != nil {
 		return tx.Error
 	}
@@ -109,8 +110,8 @@ func (r *UserRepository) UpdateUserFields(userID uuid.UUID, input *dbmodels.Upda
 	return tx.Commit().Error
 }
 
-func (r *UserRepository) UpdateUserRoles(userId uuid.UUID, role string) error {
-	transaction := r.DB.Begin()
+func (ur *UserRepository) UpdateUserRoles(userId uuid.UUID, role string) error {
+	transaction := ur.DB.Begin()
 	if transaction.Error != nil {
 		return transaction.Error
 	}
@@ -129,5 +130,20 @@ func (r *UserRepository) UpdateUserRoles(userId uuid.UUID, role string) error {
 		return update.Error
 	}
 	transaction.Commit()
+	return nil
+}
+
+func (ur *UserRepository) UpdatePassword(userId uuid.UUID, password string) error {
+	transaction := ur.DB.Begin()
+	if transaction.Error != nil {
+		return transaction.Error
+	}
+	defer transaction.Rollback()
+	update := transaction.Model(models.DBUser{}).Where("id = ?", userId).Updates(map[string]interface{}{
+		"password": password,
+	})
+	if update.Error != nil {
+		return update.Error
+	}
 	return nil
 }

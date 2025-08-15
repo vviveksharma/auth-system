@@ -77,3 +77,10 @@ type SetTenantPasswordRequest struct {
 	NewPassword        string `json:"new_password"`
 	ConfirmNewPassword string `json:"confirm_new_password"`
 }
+
+type UserVerifyOTPRequest struct {
+	OTP             string `json:"otp"`
+	Email           string `json:"email"`
+	NewPassword     string `json:"new_password"`
+	ConfirmPassword string `json:"confirm_password"`
+}

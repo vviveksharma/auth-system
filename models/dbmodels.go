@@ -142,11 +142,20 @@ func (*DBRouteRole) BeforeCreate(tx *gorm.DB) error {
 }
 
 type DBResetToken struct {
-	Id        uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
-	UserId    uuid.UUID `gorm:"type:uuid;not null"`
-	TenantId  uuid.UUID `gorm:"type:uuid;not null"`
-	ExpiresAt time.Time `gorm:"not null"`
-	IsActive  bool      `json:"is_active"`
+    Id        uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
+    UserId    uuid.UUID `gorm:"type:uuid;not null;index"`
+    TenantId  uuid.UUID `gorm:"type:uuid;not null;index"`
+
+    OTPHash   string    `gorm:"type:varchar(255);not null"`
+    OTPType   string    `gorm:"type:varchar(20);default:'numeric'"`
+
+    ResetToken string   `gorm:"type:varchar(255)"`
+    ExpiresAt  time.Time `gorm:"not null;index"`
+    IsActive   bool      `gorm:"default:true;index"`
+
+    CreatedAt time.Time `gorm:"autoCreateTime"`
+    UpdatedAt time.Time `gorm:"autoUpdateTime"`
+    UsedAt    *time.Time // Track when OTP was used
 }
 
 func (DBResetToken) TableName() string {

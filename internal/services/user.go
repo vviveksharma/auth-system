@@ -254,10 +254,10 @@ func (u *User) ResetPassword(req *models.ResetPasswordRequest) (*models.ResetPas
 		}
 	}
 	// Create a unique token valid for 5 minutes
-	tokenErr := u.ResetTokenRepo.Create(&dbmodels.DBResetToken{
+	token, tokenErr := u.ResetTokenRepo.Create(&dbmodels.DBResetToken{
 		UserId:    userDetails.Id,
 		TenantId:  userDetails.TenantId,
-		ExpiresAt: time.Now().Add(5 * time.Minute),
+		ExpiresAt: time.Now().Add(15 * time.Minute),
 		IsActive:  true,
 	})
 	if tokenErr != nil {
@@ -266,8 +266,53 @@ func (u *User) ResetPassword(req *models.ResetPasswordRequest) (*models.ResetPas
 			Message: fmt.Sprintf("failed to generate password reset token for user '%s': %s", req.Email, tokenErr.Error()),
 		}
 	}
-	// sending the email as an token
 	return &models.ResetPasswordResponse{
-		Message: "reset email sent successfully",
+		Message: "otp for the user: " + token.String(),
 	}, nil
+}
+
+func (u *User) SetPassword(req *models.UserVerifyOTPRequest) (*models.UserVerifyOTPRequest, error) {
+	istoken, err := u.ResetTokenRepo.VerifyOTP(req.OTP)
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while verifying the token: " + err.Error(),
+		}
+	}
+	if !istoken {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    423,
+			Message: "token is already expired please try again",
+		}
+	}
+	// lets set new pass
+	userDetails, err := u.UserRepo.GetUserByEmail(req.Email)
+	if err != nil {
+		if err.Error() == "record not found" {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    404,
+				Message: "user with name doesnot exist",
+			}
+		} else {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    500,
+				Message: "error while fetching the userdetails: " + err.Error(),
+			}
+		}
+	}
+	hashedpassword, err := utils.GeneratePassword(req.NewPassword, utils.DefaultParams, userDetails.Salt)
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while generating the hash for the user: " + err.Error(),
+		}
+	}
+	err = u.UserRepo.UpdatePassword(userDetails.Id, hashedpassword)
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while updating the password for the user: " + err.Error(),
+		}
+	}
+	return nil, nil
 }

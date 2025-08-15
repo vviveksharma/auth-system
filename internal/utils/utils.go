@@ -13,6 +13,7 @@ import (
 )
 
 var charset = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+var otpcharset = []rune("0123456789")
 
 type Argon2Params struct {
 	Memory      uint32
@@ -115,10 +116,18 @@ func GenerateRandomString(length int) string {
 	return string(b)
 }
 
+func GenerateOTP() string {
+	b := make([]rune, 6)
+	for i := range b {
+		b[i] = otpcharset[mathrand.Intn(len(otpcharset))]
+	}
+	return string(b)
+}
+
 func GeneratePassword(password string, p *Argon2Params, salt string) (string, error) {
 	decodeSalt, err := base64.RawStdEncoding.DecodeString(salt)
 	if err != nil {
-		return  "", err
+		return "", err
 	}
 	hash := argon2.IDKey([]byte(password), decodeSalt, p.Iterations, p.Memory, p.Parallelism, p.KeyLength)
 	hashBase64 := base64.RawStdEncoding.EncodeToString(hash)

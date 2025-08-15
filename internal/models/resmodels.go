@@ -88,3 +88,11 @@ type ResetPasswordTenantResponse struct {
 type SetTenantPasswordResponse struct {
 	Message string `json:"message"`
 }
+
+type ResetUserPasswordResponse struct {
+	Message string `json:"message"`
+}
+
+type UserVerifyOTPResponse struct {
+	Message         string `json:"message"`
+}
