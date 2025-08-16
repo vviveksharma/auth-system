@@ -49,19 +49,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid credentials or missing fields",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.BadRequestResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Error while parsing the request body",
+                        "schema": {
+                            "$ref": "#/definitions/models.StatusUnprocessableEntityResponse"
                         }
                     },
                     "500": {
                         "description": "Unexpected server error",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
-                        }
-                    },
-                    "502": {
-                        "description": "Error while parsing the request body",
-                        "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.InternalServerErrorResponse"
                         }
                     }
                 }
@@ -87,7 +87,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Unexpected server error",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.InternalServerErrorResponse"
                         }
                     }
                 }
@@ -124,7 +124,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal server error. This occurs if there is an unexpected error while fetching roles.",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.InternalServerErrorResponse"
                         }
                     }
                 }
@@ -164,19 +164,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request. This occurs if 'roleName' or 'routes' are missing or invalid.",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.BadRequestResponse"
                         }
                     },
                     "422": {
                         "description": "Unprocessable Entity. This occurs if the request body cannot be parsed.",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.StatusUnprocessableEntityResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error. This occurs if there is an unexpected error while creating the role.",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.InternalServerErrorResponse"
                         }
                     }
                 }
@@ -216,19 +216,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request. This occurs if required fields are missing or invalid.",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.BadRequestResponse"
                         }
                     },
                     "422": {
                         "description": "Unprocessable Entity. This occurs if the request body cannot be parsed.",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.StatusUnprocessableEntityResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error. This occurs if there is an unexpected error while updating permissions.",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.InternalServerErrorResponse"
                         }
                     }
                 }
@@ -265,16 +265,22 @@ const docTemplate = `{
                             "$ref": "#/definitions/models.ServiceResponse"
                         }
                     },
-                    "404": {
-                        "description": "Role not found or missing required fields. This occurs if either 'roleId' or 'roleName' is missing or invalid.",
+                    "400": {
+                        "description": "Bad Request. This occurs if either 'roleId' or 'roleName' is missing or invalid.",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.BadRequestResponse"
                         }
                     },
                     "422": {
                         "description": "Unprocessable Entity. This occurs if the request body cannot be parsed.",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.StatusUnprocessableEntityResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error. This occurs if there is an unexpected error while verifying the role.",
+                        "schema": {
+                            "$ref": "#/definitions/models.InternalServerErrorResponse"
                         }
                     }
                 }
@@ -305,13 +311,13 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized, invalid or missing authentication",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.UnauthorizedResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.InternalServerErrorResponse"
                         }
                     }
                 }
@@ -351,22 +357,28 @@ const docTemplate = `{
                             "$ref": "#/definitions/models.ServiceResponse"
                         }
                     },
+                    "400": {
+                        "description": "Bad request, missing required fields",
+                        "schema": {
+                            "$ref": "#/definitions/models.BadRequestResponse"
+                        }
+                    },
                     "401": {
                         "description": "Unauthorized, invalid or missing authentication",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.UnauthorizedResponse"
                         }
                     },
                     "422": {
                         "description": "Unprocessable entity, invalid input",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.StatusUnprocessableEntityResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.InternalServerErrorResponse"
                         }
                     }
                 }
@@ -403,16 +415,22 @@ const docTemplate = `{
                             "$ref": "#/definitions/models.ServiceResponse"
                         }
                     },
+                    "400": {
+                        "description": "Bad request, missing required fields",
+                        "schema": {
+                            "$ref": "#/definitions/models.BadRequestResponse"
+                        }
+                    },
                     "422": {
                         "description": "Unprocessable entity, invalid input",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.StatusUnprocessableEntityResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.InternalServerErrorResponse"
                         }
                     }
                 }
@@ -452,25 +470,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad request, missing required fields",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.BadRequestResponse"
                         }
                     },
                     "409": {
                         "description": "Conflict, password confirmation failed",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.ConflictResponse"
                         }
                     },
                     "422": {
                         "description": "Unprocessable entity, invalid input",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.StatusUnprocessableEntityResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.InternalServerErrorResponse"
                         }
                     }
                 }
@@ -504,31 +522,31 @@ const docTemplate = `{
                     "200": {
                         "description": "User registered successfully",
                         "schema": {
-                            "$ref": "#/definitions/models.UserResponse"
+                            "$ref": "#/definitions/models.ServiceResponse"
                         }
                     },
                     "400": {
                         "description": "Bad request, missing required fields",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.BadRequestResponse"
                         }
                     },
                     "409": {
                         "description": "Conflict, user already exists",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.ConflictResponse"
                         }
                     },
                     "422": {
                         "description": "Unprocessable entity, invalid input",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.StatusUnprocessableEntityResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.InternalServerErrorResponse"
                         }
                     }
                 }
@@ -568,7 +586,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized, invalid or missing authentication",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.UnauthorizedResponse"
                         }
                     },
                     "404": {
@@ -580,7 +598,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.InternalServerErrorResponse"
                         }
                     }
                 }
@@ -629,10 +647,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/models.ServiceResponse"
                         }
                     },
+                    "400": {
+                        "description": "Bad request, missing required fields",
+                        "schema": {
+                            "$ref": "#/definitions/models.BadRequestResponse"
+                        }
+                    },
                     "401": {
                         "description": "Unauthorized, invalid or missing authentication",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.UnauthorizedResponse"
                         }
                     },
                     "404": {
@@ -644,13 +668,13 @@ const docTemplate = `{
                     "422": {
                         "description": "Unprocessable entity, invalid input",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.StatusUnprocessableEntityResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "$ref": "#/definitions/models.InternalServerErrorResponse"
                         }
                     }
                 }
@@ -663,6 +687,32 @@ const docTemplate = `{
             "properties": {
                 "role": {
                     "type": "string"
+                }
+            }
+        },
+        "models.BadRequestResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 400
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Bad request. Missing or invalid required fields."
+                }
+            }
+        },
+        "models.ConflictResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 409
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Conflict. Resource already exists or operation conflicts with current state."
                 }
             }
         },
@@ -680,6 +730,19 @@ const docTemplate = `{
                 }
             }
         },
+        "models.InternalServerErrorResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 500
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Internal server error occurred."
+                }
+            }
+        },
         "models.ResetPasswordRequest": {
             "type": "object",
             "properties": {
@@ -692,11 +755,39 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "code": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 200
                 },
                 "data": {},
                 "message": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Operation completed successfully"
+                }
+            }
+        },
+        "models.StatusUnprocessableEntityResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 422
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Invalid request body format. Please check your JSON syntax and field types."
+                }
+            }
+        },
+        "models.UnauthorizedResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer",
+                    "example": 401
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Unauthorized access. Please provide valid authentication credentials."
                 }
             }
         },
@@ -758,14 +849,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "password": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.UserResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
                     "type": "string"
                 }
             }

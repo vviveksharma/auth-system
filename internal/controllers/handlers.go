@@ -28,3 +28,38 @@ func (h *Handler) Welcome(ctx *fiber.Ctx) error {
 		Message: "GuardRail is up and working",
 	})
 }
+
+func BadRequest(ctx *fiber.Ctx, message string) error {
+	return ctx.Status(fiber.StatusBadRequest).JSON(dbmodels.BadRequestResponse{
+		Code:    fiber.StatusBadRequest,
+		Message: message,
+	})
+}
+
+func Unauthorized(ctx *fiber.Ctx, message string) error {
+	return ctx.Status(fiber.StatusUnauthorized).JSON(dbmodels.UnauthorizedResponse{
+		Code:    fiber.StatusUnauthorized,
+		Message: message,
+	})
+}
+
+func Conflict(ctx *fiber.Ctx, message string) error {
+	return ctx.Status(fiber.StatusConflict).JSON(dbmodels.ConflictResponse{
+		Code:    fiber.StatusConflict,
+		Message: message,
+	})
+}
+
+func UnprocessableEntity(ctx *fiber.Ctx) error {
+	return ctx.Status(fiber.StatusUnprocessableEntity).JSON(dbmodels.StatusUnprocessableEntityResponse{
+		Code:    fiber.StatusUnprocessableEntity,
+		Message: "Invalid request payload. Please ensure the request body is properly formatted.",
+	})
+}
+
+func InternalServerError(ctx *fiber.Ctx, message string) error {
+	return ctx.Status(fiber.StatusInternalServerError).JSON(dbmodels.InternalServerErrorResponse{
+		Code:    fiber.StatusInternalServerError,
+		Message: "An unexpected error occurred while processing your request.",
+	})
+}

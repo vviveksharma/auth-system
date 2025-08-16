@@ -14,17 +14,17 @@ func (h *Handler) CreateUser(ctx *fiber.Ctx) error {
 	err := ctx.BodyParser(&req)
 	if err != nil {
 		log.Println("Error in parsing the request Body" + err.Error())
-		return &responsemodels.ServiceResponse{
+		return ctx.Status(fiber.StatusUnprocessableEntity).JSON(&responsemodels.StatusUnprocessableEntityResponse{
 			Code:    fiber.StatusUnprocessableEntity,
 			Message: "error while parsing the requestBody: " + err.Error(),
-		}
+		})
 	}
 	if req.Email == "" || req.Name == "" || req.Password == "" {
 		log.Println("the requestBody: ", req)
-		return &responsemodels.ServiceResponse{
+		return ctx.Status(fiber.StatusBadRequest).JSON(&responsemodels.ServiceResponse{
 			Code:    fiber.StatusBadRequest,
-			Message: "either name or type is missing in the request Body",
-		}
+			Message: "Missing required fields: name, email, and password are required",
+		})
 	}
 	fmt.Println("the userdetails from the request ", req)
 	resp, err := h.UserService.CreateUser(req)
@@ -48,8 +48,8 @@ func (h *Handler) CreateUser(ctx *fiber.Ctx) error {
 // @Tags User
 // @Produce json
 // @Success 200 {object} responsemodels.ServiceResponse "User details successfully retrieved"
-// @Failure 401 {object} responsemodels.ServiceResponse "Unauthorized, invalid or missing authentication"
-// @Failure 500 {object} responsemodels.ServiceResponse "Internal server error"
+// @Failure 401 {object} responsemodels.UnauthorizedResponse "Unauthorized, invalid or missing authentication"
+// @Failure 500 {object} responsemodels.InternalServerErrorResponse "Internal server error"
 // @Router /user/details [get]
 // @Security ApiKeyAuth
 func (h *Handler) GetUserDetails(ctx *fiber.Ctx) error {
@@ -81,9 +81,10 @@ func (h *Handler) GetUserDetails(ctx *fiber.Ctx) error {
 // @Produce json
 // @Param request body models.UpdateUserRequest true "Fields to update for the user profile"
 // @Success 200 {object} responsemodels.ServiceResponse "User details updated successfully"
-// @Failure 401 {object} responsemodels.ServiceResponse "Unauthorized, invalid or missing authentication"
-// @Failure 422 {object} responsemodels.ServiceResponse "Unprocessable entity, invalid input"
-// @Failure 500 {object} responsemodels.ServiceResponse "Internal server error"
+// @Failure 400 {object} responsemodels.BadRequestResponse "Bad request, missing required fields"
+// @Failure 401 {object} responsemodels.UnauthorizedResponse "Unauthorized, invalid or missing authentication"
+// @Failure 422 {object} responsemodels.StatusUnprocessableEntityResponse "Unprocessable entity, invalid input"
+// @Failure 500 {object} responsemodels.InternalServerErrorResponse "Internal server error"
 // @Router /user/details [put]
 // @Security ApiKeyAuth
 func (h *Handler) UpdateUserDetails(ctx *fiber.Ctx) error {
@@ -91,10 +92,10 @@ func (h *Handler) UpdateUserDetails(ctx *fiber.Ctx) error {
 	err := ctx.BodyParser(&req)
 	if err != nil {
 		log.Println("Error in parsing the request Body" + err.Error())
-		return ctx.Status(fiber.StatusUnprocessableEntity).JSON(responsemodels.ServiceResponse{
-			Code:    fiber.StatusUnprocessableEntity,
-			Message: "error while parsing the requestBody: " + err.Error(),
-		})
+		return UnprocessableEntity(ctx)
+	}
+	if req.Email == nil && req.Name == nil && req.Password == nil {
+		return BadRequest(ctx, "At least one field (email, name, or password) must be provided for update.")
 	}
 	userId := ctx.Locals("userId").(string)
 	fmt.Println("the userid: ", userId)
@@ -123,9 +124,9 @@ func (h *Handler) UpdateUserDetails(ctx *fiber.Ctx) error {
 // @Produce json
 // @Param id path string true "Unique identifier of the user to retrieve"
 // @Success 200 {object} responsemodels.ServiceResponse "User details successfully retrieved"
-// @Failure 401 {object} responsemodels.ServiceResponse "Unauthorized, invalid or missing authentication"
+// @Failure 401 {object} responsemodels.UnauthorizedResponse "Unauthorized, invalid or missing authentication"
 // @Failure 404 {object} responsemodels.ServiceResponse "User not found"
-// @Failure 500 {object} responsemodels.ServiceResponse "Internal server error"
+// @Failure 500 {object} responsemodels.InternalServerErrorResponse "Internal server error"
 // @Router /user/{id} [get]
 // @Security ApiKeyAuth
 func (h *Handler) GetUserByIdDetails(ctx *fiber.Ctx) error {
@@ -158,10 +159,11 @@ func (h *Handler) GetUserByIdDetails(ctx *fiber.Ctx) error {
 // @Param id path string true "Unique identifier of the user to assign a role"
 // @Param request body models.AssignRoleRequest true "Role assignment details"
 // @Success 200 {object} responsemodels.ServiceResponse "Role assigned successfully"
-// @Failure 401 {object} responsemodels.ServiceResponse "Unauthorized, invalid or missing authentication"
+// @Failure 400 {object} responsemodels.BadRequestResponse "Bad request, missing required fields"
+// @Failure 401 {object} responsemodels.UnauthorizedResponse "Unauthorized, invalid or missing authentication"
 // @Failure 404 {object} responsemodels.ServiceResponse "User not found"
-// @Failure 422 {object} responsemodels.ServiceResponse "Unprocessable entity, invalid input"
-// @Failure 500 {object} responsemodels.ServiceResponse "Internal server error"
+// @Failure 422 {object} responsemodels.StatusUnprocessableEntityResponse "Unprocessable entity, invalid input"
+// @Failure 500 {object} responsemodels.InternalServerErrorResponse "Internal server error"
 // @Router /user/{id}/role [post]
 // @Security ApiKeyAuth
 func (h *Handler) AssignUserRole(ctx *fiber.Ctx) error {
@@ -169,12 +171,12 @@ func (h *Handler) AssignUserRole(ctx *fiber.Ctx) error {
 	err := ctx.BodyParser(&req)
 	if err != nil {
 		log.Println("Error in parsing the request Body" + err.Error())
-		return ctx.Status(fiber.StatusUnprocessableEntity).JSON(responsemodels.ServiceResponse{
-			Code:    fiber.StatusUnprocessableEntity,
-			Message: "error while parsing the requestBody: " + err.Error(),
-		})
+		return UnprocessableEntity(ctx)
 	}
 	userId := ctx.Params("id")
+	if req.Role == "" {
+		return BadRequest(ctx, "Invalid request: 'roleName' fields is required and cannot be empty.")
+	}
 	resp, err := h.UserService.AssignUserRole(req, userId)
 	if err != nil {
 		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
@@ -200,28 +202,21 @@ func (h *Handler) AssignUserRole(ctx *fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Param request body models.UserRequest true "User registration details including name, email, and password"
-// @Success 200 {object} models.UserResponse "User registered successfully"
-// @Failure 400 {object} responsemodels.ServiceResponse "Bad request, missing required fields"
-// @Failure 409 {object} responsemodels.ServiceResponse "Conflict, user already exists"
-// @Failure 422 {object} responsemodels.ServiceResponse "Unprocessable entity, invalid input"
-// @Failure 500 {object} responsemodels.ServiceResponse "Internal server error"
+// @Success 200 {object} responsemodels.ServiceResponse "User registered successfully"
+// @Failure 400 {object} responsemodels.BadRequestResponse "Bad request, missing required fields"
+// @Failure 409 {object} responsemodels.ConflictResponse "Conflict, user already exists"
+// @Failure 422 {object} responsemodels.StatusUnprocessableEntityResponse "Unprocessable entity, invalid input"
+// @Failure 500 {object} responsemodels.InternalServerErrorResponse "Internal server error"
 // @Router /user/register [post]
 func (h *Handler) RegisterUser(ctx *fiber.Ctx) error {
 	var req *models.UserRequest
 	err := ctx.BodyParser(&req)
 	if err != nil {
 		log.Println("Error in parsing the request Body" + err.Error())
-		return &responsemodels.ServiceResponse{
-			Code:    fiber.StatusUnprocessableEntity,
-			Message: "error while parsing the requestBody: " + err.Error(),
-		}
+		return UnprocessableEntity(ctx)
 	}
 	if req.Email == "" || req.Name == "" || req.Password == "" {
-		log.Println("the requestBody: ", req)
-		return &responsemodels.ServiceResponse{
-			Code:    fiber.StatusBadRequest,
-			Message: "either name or type is missing in the request Body",
-		}
+		return BadRequest(ctx, "Invalid request: 'email' , 'password' and 'name' fields are required and cannot be empty.")
 	}
 	resp, err := h.UserService.RegisterUser(req, ctx.Context())
 	if err != nil {
@@ -246,18 +241,19 @@ func (h *Handler) RegisterUser(ctx *fiber.Ctx) error {
 // @Produce json
 // @Param request body models.ResetPasswordRequest true "Password reset request details"
 // @Success 200 {object} responsemodels.ServiceResponse "Password reset initiated successfully"
-// @Failure 422 {object} responsemodels.ServiceResponse "Unprocessable entity, invalid input"
-// @Failure 500 {object} responsemodels.ServiceResponse "Internal server error"
+// @Failure 400 {object} responsemodels.BadRequestResponse "Bad request, missing required fields"
+// @Failure 422 {object} responsemodels.StatusUnprocessableEntityResponse "Unprocessable entity, invalid input"
+// @Failure 500 {object} responsemodels.InternalServerErrorResponse "Internal server error"
 // @Router /user/password/reset [post]
 func (h *Handler) ResetUserPassword(ctx *fiber.Ctx) error {
 	var req *models.ResetPasswordRequest
 	err := ctx.BodyParser(&req)
 	if err != nil {
 		log.Println("Error in parsing the request Body" + err.Error())
-		return ctx.Status(fiber.StatusUnprocessableEntity).JSON(responsemodels.ServiceResponse{
-			Code:    fiber.StatusUnprocessableEntity,
-			Message: "error while parsing the requestBody: " + err.Error(),
-		})
+		return UnprocessableEntity(ctx)
+	}
+	if req.Email == "" {
+		return BadRequest(ctx, "Invalid request: 'email' field is required and cannot be empty.")
 	}
 	resp, err := h.UserService.ResetPassword(req)
 	if err != nil {
@@ -285,26 +281,20 @@ func (h *Handler) ResetUserPassword(ctx *fiber.Ctx) error {
 // @Produce json
 // @Param request body models.UserVerifyOTPRequest true "OTP verification and new password details"
 // @Success 200 {object} responsemodels.ServiceResponse "Password updated successfully"
-// @Failure 400 {object} responsemodels.ServiceResponse "Bad request, missing required fields"
-// @Failure 409 {object} responsemodels.ServiceResponse "Conflict, password confirmation failed"
-// @Failure 422 {object} responsemodels.ServiceResponse "Unprocessable entity, invalid input"
-// @Failure 500 {object} responsemodels.ServiceResponse "Internal server error"
+// @Failure 400 {object} responsemodels.BadRequestResponse "Bad request, missing required fields"
+// @Failure 409 {object} responsemodels.ConflictResponse "Conflict, password confirmation failed"
+// @Failure 422 {object} responsemodels.StatusUnprocessableEntityResponse "Unprocessable entity, invalid input"
+// @Failure 500 {object} responsemodels.InternalServerErrorResponse "Internal server error"
 // @Router /user/password/set [post]
 func (h *Handler) SetUserPassword(ctx *fiber.Ctx) error {
 	var req *models.UserVerifyOTPRequest
 	err := ctx.BodyParser(&req)
 	if err != nil {
 		log.Println("Error in parsing the request Body" + err.Error())
-		return ctx.Status(fiber.StatusUnprocessableEntity).JSON(responsemodels.ServiceResponse{
-			Code:    fiber.StatusUnprocessableEntity,
-			Message: "error while parsing the requestBody: " + err.Error(),
-		})
+		return UnprocessableEntity(ctx)
 	}
 	if req.Email == "" || req.OTP == "" || req.ConfirmPassword == "" || req.NewPassword == "" {
-		return ctx.Status(fiber.StatusBadRequest).JSON(responsemodels.ServiceResponse{
-			Code:    fiber.StatusBadRequest,
-			Message: "One or more required fields (email, OTP, new password, confirm password) are missing in the request. Please ensure all fields are provided.",
-		})
+		return BadRequest(ctx, "Invalid request: 'otp', 'confirm_password', 'new_password' and 'email' fields are required and cannot be empty.")
 	}
 	if req.NewPassword != req.ConfirmPassword {
 		log.Printf("Password mismatch for email: %s", req.Email)
@@ -326,7 +316,7 @@ func (h *Handler) SetUserPassword(ctx *fiber.Ctx) error {
 	}
 	return ctx.Status(fiber.StatusOK).JSON(responsemodels.ServiceResponse{
 		Code:    200,
-		Message: "The password was succcessfully updated",
+		Message: "The password was successfully updated",
 		Data:    resp,
 	})
 }

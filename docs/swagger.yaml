@@ -4,6 +4,25 @@ definitions:
       role:
         type: string
     type: object
+  models.BadRequestResponse:
+    properties:
+      code:
+        example: 400
+        type: integer
+      message:
+        example: Bad request. Missing or invalid required fields.
+        type: string
+    type: object
+  models.ConflictResponse:
+    properties:
+      code:
+        example: 409
+        type: integer
+      message:
+        example: Conflict. Resource already exists or operation conflicts with current
+          state.
+        type: string
+    type: object
   models.CreateCustomRole:
     properties:
       role:
@@ -13,6 +32,15 @@ definitions:
           type: string
         type: array
     type: object
+  models.InternalServerErrorResponse:
+    properties:
+      code:
+        example: 500
+        type: integer
+      message:
+        example: Internal server error occurred.
+        type: string
+    type: object
   models.ResetPasswordRequest:
     properties:
       email:
@@ -21,9 +49,30 @@ definitions:
   models.ServiceResponse:
     properties:
       code:
+        example: 200
         type: integer
       data: {}
       message:
+        example: Operation completed successfully
+        type: string
+    type: object
+  models.StatusUnprocessableEntityResponse:
+    properties:
+      code:
+        example: 422
+        type: integer
+      message:
+        example: Invalid request body format. Please check your JSON syntax and field
+          types.
+        type: string
+    type: object
+  models.UnauthorizedResponse:
+    properties:
+      code:
+        example: 401
+        type: integer
+      message:
+        example: Unauthorized access. Please provide valid authentication credentials.
         type: string
     type: object
   models.UpdateRolePermissions:
@@ -64,11 +113,6 @@ definitions:
       name:
         type: string
       password:
-        type: string
-    type: object
-  models.UserResponse:
-    properties:
-      message:
         type: string
     type: object
   models.UserVerifyOTPRequest:
@@ -114,15 +158,15 @@ paths:
         "400":
           description: Invalid credentials or missing fields
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.BadRequestResponse'
+        "422":
+          description: Error while parsing the request body
+          schema:
+            $ref: '#/definitions/models.StatusUnprocessableEntityResponse'
         "500":
           description: Unexpected server error
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
-        "502":
-          description: Error while parsing the request body
-          schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.InternalServerErrorResponse'
       summary: User Login
       tags:
       - Auth
@@ -139,7 +183,7 @@ paths:
         "500":
           description: Unexpected server error
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.InternalServerErrorResponse'
       summary: Refresh JWT Token
       tags:
       - Auth
@@ -167,7 +211,7 @@ paths:
           description: Internal server error. This occurs if there is an unexpected
             error while fetching roles.
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.InternalServerErrorResponse'
       summary: List all roles
       tags:
       - Roles
@@ -197,17 +241,17 @@ paths:
           description: Bad Request. This occurs if 'roleName' or 'routes' are missing
             or invalid.
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.BadRequestResponse'
         "422":
           description: Unprocessable Entity. This occurs if the request body cannot
             be parsed.
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.StatusUnprocessableEntityResponse'
         "500":
           description: Internal server error. This occurs if there is an unexpected
             error while creating the role.
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.InternalServerErrorResponse'
       summary: Create custom role
       tags:
       - Roles
@@ -237,17 +281,17 @@ paths:
           description: Bad Request. This occurs if required fields are missing or
             invalid.
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.BadRequestResponse'
         "422":
           description: Unprocessable Entity. This occurs if the request body cannot
             be parsed.
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.StatusUnprocessableEntityResponse'
         "500":
           description: Internal server error. This occurs if there is an unexpected
             error while updating permissions.
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.InternalServerErrorResponse'
       summary: Update role permissions
       tags:
       - Roles
@@ -271,16 +315,21 @@ paths:
           description: Role exists. Data contains verification result.
           schema:
             $ref: '#/definitions/models.ServiceResponse'
-        "404":
-          description: Role not found or missing required fields. This occurs if either
-            'roleId' or 'roleName' is missing or invalid.
+        "400":
+          description: Bad Request. This occurs if either 'roleId' or 'roleName' is
+            missing or invalid.
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.BadRequestResponse'
         "422":
           description: Unprocessable Entity. This occurs if the request body cannot
             be parsed.
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.StatusUnprocessableEntityResponse'
+        "500":
+          description: Internal server error. This occurs if there is an unexpected
+            error while verifying the role.
+          schema:
+            $ref: '#/definitions/models.InternalServerErrorResponse'
       summary: Verify role
       tags:
       - Roles
@@ -304,7 +353,7 @@ paths:
         "401":
           description: Unauthorized, invalid or missing authentication
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.UnauthorizedResponse'
         "404":
           description: User not found
           schema:
@@ -312,7 +361,7 @@ paths:
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.InternalServerErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Get User Details by ID
@@ -343,10 +392,14 @@ paths:
           description: Role assigned successfully
           schema:
             $ref: '#/definitions/models.ServiceResponse'
+        "400":
+          description: Bad request, missing required fields
+          schema:
+            $ref: '#/definitions/models.BadRequestResponse'
         "401":
           description: Unauthorized, invalid or missing authentication
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.UnauthorizedResponse'
         "404":
           description: User not found
           schema:
@@ -354,11 +407,11 @@ paths:
         "422":
           description: Unprocessable entity, invalid input
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.StatusUnprocessableEntityResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.InternalServerErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Assign Role to User
@@ -378,11 +431,11 @@ paths:
         "401":
           description: Unauthorized, invalid or missing authentication
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.UnauthorizedResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.InternalServerErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Get Authenticated User Details
@@ -407,18 +460,22 @@ paths:
           description: User details updated successfully
           schema:
             $ref: '#/definitions/models.ServiceResponse'
+        "400":
+          description: Bad request, missing required fields
+          schema:
+            $ref: '#/definitions/models.BadRequestResponse'
         "401":
           description: Unauthorized, invalid or missing authentication
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.UnauthorizedResponse'
         "422":
           description: Unprocessable entity, invalid input
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.StatusUnprocessableEntityResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.InternalServerErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Update Authenticated User Details
@@ -444,14 +501,18 @@ paths:
           description: Password reset initiated successfully
           schema:
             $ref: '#/definitions/models.ServiceResponse'
+        "400":
+          description: Bad request, missing required fields
+          schema:
+            $ref: '#/definitions/models.BadRequestResponse'
         "422":
           description: Unprocessable entity, invalid input
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.StatusUnprocessableEntityResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.InternalServerErrorResponse'
       summary: Reset User Password
       tags:
       - User
@@ -478,19 +539,19 @@ paths:
         "400":
           description: Bad request, missing required fields
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.BadRequestResponse'
         "409":
           description: Conflict, password confirmation failed
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.ConflictResponse'
         "422":
           description: Unprocessable entity, invalid input
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.StatusUnprocessableEntityResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.InternalServerErrorResponse'
       summary: Set New User Password
       tags:
       - User
@@ -514,23 +575,23 @@ paths:
         "200":
           description: User registered successfully
           schema:
-            $ref: '#/definitions/models.UserResponse'
+            $ref: '#/definitions/models.ServiceResponse'
         "400":
           description: Bad request, missing required fields
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.BadRequestResponse'
         "409":
           description: Conflict, user already exists
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.ConflictResponse'
         "422":
           description: Unprocessable entity, invalid input
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.StatusUnprocessableEntityResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            $ref: '#/definitions/models.InternalServerErrorResponse'
       summary: Register New User
       tags:
       - User

@@ -14,7 +14,7 @@ import (
 // @Produce      json
 // @Param        type  query     string  false  "Role type to filter (e.g., 'admin', 'user', 'default'). If not provided, defaults to 'default'."
 // @Success      200   {object}  responsemodels.ServiceResponse  "Roles fetched successfully. Data contains the list of roles."
-// @Failure      500   {object}  responsemodels.ServiceResponse  "Internal server error. This occurs if there is an unexpected error while fetching roles."
+// @Failure      500   {object}  responsemodels.InternalServerErrorResponse  "Internal server error. This occurs if there is an unexpected error while fetching roles."
 // @Router       /roles [get]
 func (h *Handler) ListAllRoles(ctx *fiber.Ctx) error {
 	flag := ctx.Query("type")
@@ -26,7 +26,7 @@ func (h *Handler) ListAllRoles(ctx *fiber.Ctx) error {
 		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
 		} else {
-			return ctx.JSON(500, "an unexpected error occurred")
+			return InternalServerError(ctx, "Internal server error occured: "+err.Error())
 		}
 	}
 	return ctx.Status(fiber.StatusOK).JSON(&responsemodels.ServiceResponse{
@@ -44,30 +44,25 @@ func (h *Handler) ListAllRoles(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        request  body      models.VerifyRoleRequest  true  "Verify Role Request. Requires both 'roleId' and 'roleName'."
 // @Success      200      {object}  responsemodels.ServiceResponse  "Role exists. Data contains verification result."
-// @Failure      404      {object}  responsemodels.ServiceResponse  "Role not found or missing required fields. This occurs if either 'roleId' or 'roleName' is missing or invalid."
-// @Failure      422      {object}  responsemodels.ServiceResponse  "Unprocessable Entity. This occurs if the request body cannot be parsed."
+// @Failure      400      {object}  responsemodels.BadRequestResponse  "Bad Request. This occurs if either 'roleId' or 'roleName' is missing or invalid."
+// @Failure      422      {object}  responsemodels.StatusUnprocessableEntityResponse  "Unprocessable Entity. This occurs if the request body cannot be parsed."
+// @Failure      500      {object}  responsemodels.InternalServerErrorResponse  "Internal server error. This occurs if there is an unexpected error while verifying the role."
 // @Router       /roles/verify [post]
 func (h *Handler) VerifyRole(ctx *fiber.Ctx) error {
 	var req *models.VerifyRoleRequest
 	err := ctx.BodyParser(&req)
 	if err != nil {
-		return &responsemodels.ServiceResponse{
-			Code:    fiber.StatusUnprocessableEntity,
-			Message: "error while parsing the requestBody: " + err.Error(),
-		}
+		return UnprocessableEntity(ctx)
 	}
 	if req.RoleId == "" || req.RoleName == "" {
-		return &responsemodels.ServiceResponse{
-			Code:    404,
-			Message: "either the roleId or rolename is missing",
-		}
+		return BadRequest(ctx, "Invalid request: 'role_name' and 'role_id' fields are required and cannot be empty.")
 	}
 	resp, err := h.RoleService.VerifyRole(req)
 	if err != nil {
 		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
 		} else {
-			return ctx.JSON(500, "an unexpected error occurred")
+			return InternalServerError(ctx, "Internal server error occurred."+"error: "+err.Error())
 		}
 	}
 	return ctx.Status(fiber.StatusOK).JSON(responsemodels.ServiceResponse{
@@ -85,31 +80,25 @@ func (h *Handler) VerifyRole(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        request  body      models.CreateCustomRole  true  "Create Custom Role Request. Requires 'roleName' and 'routes' fields."
 // @Success      200      {object}  responsemodels.ServiceResponse  "Role created successfully."
-// @Failure      400      {object}  responsemodels.ServiceResponse  "Bad Request. This occurs if 'roleName' or 'routes' are missing or invalid."
-// @Failure      422      {object}  responsemodels.ServiceResponse  "Unprocessable Entity. This occurs if the request body cannot be parsed."
-// @Failure      500      {object}  responsemodels.ServiceResponse  "Internal server error. This occurs if there is an unexpected error while creating the role."
+// @Failure      400      {object}  responsemodels.BadRequestResponse  "Bad Request. This occurs if 'roleName' or 'routes' are missing or invalid."
+// @Failure      422      {object}  responsemodels.StatusUnprocessableEntityResponse  "Unprocessable Entity. This occurs if the request body cannot be parsed."
+// @Failure      500      {object}  responsemodels.InternalServerErrorResponse  "Internal server error. This occurs if there is an unexpected error while creating the role."
 // @Router       /roles/custom [post]
 func (h *Handler) CreateCustomRole(ctx *fiber.Ctx) error {
 	var req models.CreateCustomRole
 	err := ctx.BodyParser(&req)
 	if err != nil {
-		return ctx.Status(fiber.StatusBadRequest).JSON(responsemodels.ServiceResponse{
-			Code:    fiber.StatusUnprocessableEntity,
-			Message: "Invalid request payload. Please ensure the request body is properly formatted.",
-		})
+		return UnprocessableEntity(ctx)
 	}
 	if req.RoleName == "" || req.Routes == nil {
-		return ctx.Status(fiber.StatusBadRequest).JSON(responsemodels.ServiceResponse{
-			Code:    fiber.StatusBadRequest,
-			Message: "Invalid request payload. Please ensure the request body is properly formatted.",
-		})
+		return BadRequest(ctx, "Invalid request: 'roleName' and 'routes' fields are required and cannot be empty.")
 	}
 	resp, err := h.RoleService.CreateCustomRole(&req)
 	if err != nil {
 		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
 		} else {
-			return ctx.JSON(500, "an unexpected error occurred")
+			return InternalServerError(ctx, "Internal server error occurred."+"error: "+err.Error())
 		}
 	}
 	return ctx.Status(fiber.StatusOK).JSON(responsemodels.ServiceResponse{
@@ -126,31 +115,25 @@ func (h *Handler) CreateCustomRole(ctx *fiber.Ctx) error {
 // @Produce      json
 // @Param        request  body      models.UpdateRolePermissions  true  "Update Role Permissions Request. Requires 'roleName', 'addPermisions', and 'removePermissions'."
 // @Success      200      {object}  responsemodels.ServiceResponse  "Role permissions updated successfully."
-// @Failure      400      {object}  responsemodels.ServiceResponse  "Bad Request. This occurs if required fields are missing or invalid."
-// @Failure      422      {object}  responsemodels.ServiceResponse  "Unprocessable Entity. This occurs if the request body cannot be parsed."
-// @Failure      500      {object}  responsemodels.ServiceResponse  "Internal server error. This occurs if there is an unexpected error while updating permissions."
+// @Failure      400      {object}  responsemodels.BadRequestResponse  "Bad Request. This occurs if required fields are missing or invalid."
+// @Failure      422      {object}  responsemodels.StatusUnprocessableEntityResponse  "Unprocessable Entity. This occurs if the request body cannot be parsed."
+// @Failure      500      {object}  responsemodels.InternalServerErrorResponse  "Internal server error. This occurs if there is an unexpected error while updating permissions."
 // @Router       /roles/permissions [put]
 func (h *Handler) UpdateRolePermission(ctx *fiber.Ctx) error {
 	var req models.UpdateRolePermissions
 	err := ctx.BodyParser(&req)
 	if err != nil {
-		return ctx.Status(fiber.StatusUnprocessableEntity).JSON(responsemodels.ServiceResponse{
-			Code:    fiber.StatusUnprocessableEntity,
-			Message: "Invalid request payload. Please ensure the request body is properly formatted.",
-		})
+		return UnprocessableEntity(ctx)
 	}
 	if req.AddPermisions == nil || req.RemovePermissions == nil || req.RoleName == "" {
-		return ctx.Status(fiber.StatusBadRequest).JSON(responsemodels.ServiceResponse{
-			Code:    fiber.StatusBadRequest,
-			Message: "Invalid request payload. Please ensure the request body is properly formatted.",
-		})
+		return BadRequest(ctx, "Invalid request: 'add_permissions', 'role_name' and 'remove_permissions' fields are required and cannot be empty.")
 	}
 	resp, err := h.RoleService.UpdateRolePermission(&req)
 	if err != nil {
 		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
 		} else {
-			return ctx.JSON(500, "an unexpected error occurred")
+			return InternalServerError(ctx, "Internal server error occurred."+"error: "+err.Error())
 		}
 	}
 	return ctx.Status(fiber.StatusOK).JSON(responsemodels.ServiceResponse{
