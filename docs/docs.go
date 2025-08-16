@@ -25,7 +25,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "auth"
+                    "Auth"
                 ],
                 "summary": "User Login",
                 "parameters": [
@@ -74,7 +74,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "auth"
+                    "Auth"
                 ],
                 "summary": "Refresh JWT Token",
                 "responses": {
@@ -103,7 +103,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "roles"
+                    "Roles"
                 ],
                 "summary": "List all roles",
                 "parameters": [
@@ -140,7 +140,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "roles"
+                    "Roles"
                 ],
                 "summary": "Create custom role",
                 "parameters": [
@@ -192,7 +192,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "roles"
+                    "Roles"
                 ],
                 "summary": "Update role permissions",
                 "parameters": [
@@ -244,7 +244,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "roles"
+                    "Roles"
                 ],
                 "summary": "Verify role",
                 "parameters": [
@@ -353,6 +353,110 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized, invalid or missing authentication",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable entity, invalid input",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/user/password/reset": {
+            "post": {
+                "description": "Initiates the password reset process for a user by sending a reset link or OTP to the user's email.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User"
+                ],
+                "summary": "Reset User Password",
+                "parameters": [
+                    {
+                        "description": "Password reset request details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ResetPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Password reset initiated successfully",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable entity, invalid input",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/user/password/set": {
+            "post": {
+                "description": "Sets a new password for the user after verifying the OTP sent to their email. Requires email, OTP, new password, and confirmation.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User"
+                ],
+                "summary": "Set New User Password",
+                "parameters": [
+                    {
+                        "description": "OTP verification and new password details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.UserVerifyOTPRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Password updated successfully",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request, missing required fields",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict, password confirmation failed",
                         "schema": {
                             "$ref": "#/definitions/models.ServiceResponse"
                         }
@@ -576,6 +680,14 @@ const docTemplate = `{
                 }
             }
         },
+        "models.ResetPasswordRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
         "models.ServiceResponse": {
             "type": "object",
             "properties": {
@@ -654,6 +766,23 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.UserVerifyOTPRequest": {
+            "type": "object",
+            "properties": {
+                "confirm_password": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "new_password": {
+                    "type": "string"
+                },
+                "otp": {
                     "type": "string"
                 }
             }

@@ -13,6 +13,11 @@ definitions:
           type: string
         type: array
     type: object
+  models.ResetPasswordRequest:
+    properties:
+      email:
+        type: string
+    type: object
   models.ServiceResponse:
     properties:
       code:
@@ -66,6 +71,17 @@ definitions:
       message:
         type: string
     type: object
+  models.UserVerifyOTPRequest:
+    properties:
+      confirm_password:
+        type: string
+      email:
+        type: string
+      new_password:
+        type: string
+      otp:
+        type: string
+    type: object
   models.VerifyRoleRequest:
     properties:
       role_id:
@@ -109,7 +125,7 @@ paths:
             $ref: '#/definitions/models.ServiceResponse'
       summary: User Login
       tags:
-      - auth
+      - Auth
   /refresh-token:
     post:
       description: Refreshes and returns a new JWT token for the authenticated user.
@@ -126,7 +142,7 @@ paths:
             $ref: '#/definitions/models.ServiceResponse'
       summary: Refresh JWT Token
       tags:
-      - auth
+      - Auth
   /roles:
     get:
       consumes:
@@ -154,7 +170,7 @@ paths:
             $ref: '#/definitions/models.ServiceResponse'
       summary: List all roles
       tags:
-      - roles
+      - Roles
   /roles/custom:
     post:
       consumes:
@@ -194,7 +210,7 @@ paths:
             $ref: '#/definitions/models.ServiceResponse'
       summary: Create custom role
       tags:
-      - roles
+      - Roles
   /roles/permissions:
     put:
       consumes:
@@ -234,7 +250,7 @@ paths:
             $ref: '#/definitions/models.ServiceResponse'
       summary: Update role permissions
       tags:
-      - roles
+      - Roles
   /roles/verify:
     post:
       consumes:
@@ -267,7 +283,7 @@ paths:
             $ref: '#/definitions/models.ServiceResponse'
       summary: Verify role
       tags:
-      - roles
+      - Roles
   /user/{id}:
     get:
       description: Fetches the details of a user by their unique user ID. This endpoint
@@ -406,6 +422,76 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Update Authenticated User Details
+      tags:
+      - User
+  /user/password/reset:
+    post:
+      consumes:
+      - application/json
+      description: Initiates the password reset process for a user by sending a reset
+        link or OTP to the user's email.
+      parameters:
+      - description: Password reset request details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password reset initiated successfully
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+        "422":
+          description: Unprocessable entity, invalid input
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+      summary: Reset User Password
+      tags:
+      - User
+  /user/password/set:
+    post:
+      consumes:
+      - application/json
+      description: Sets a new password for the user after verifying the OTP sent to
+        their email. Requires email, OTP, new password, and confirmation.
+      parameters:
+      - description: OTP verification and new password details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserVerifyOTPRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password updated successfully
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+        "400":
+          description: Bad request, missing required fields
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+        "409":
+          description: Conflict, password confirmation failed
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+        "422":
+          description: Unprocessable entity, invalid input
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+      summary: Set New User Password
       tags:
       - User
   /user/register:

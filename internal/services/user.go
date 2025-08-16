@@ -20,6 +20,8 @@ type UserService interface {
 	GetUserById(userId string) (*models.GetUserByIdResponse, error)
 	AssignUserRole(req *models.AssignRoleRequest, userId string) (*models.AssignRoleResponse, error)
 	RegisterUser(req *models.UserRequest, ctx context.Context) (*models.UserResponse, error)
+	ResetPassword(req *models.ResetPasswordRequest) (*models.ResetPasswordResponse, error)
+	SetPassword(req *models.UserVerifyOTPRequest) (*models.UserVerifyOTPRequest, error)
 }
 
 type User struct {

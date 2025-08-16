@@ -2,8 +2,8 @@ package routes
 
 import (
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/swagger"
 	"github.com/redis/go-redis/v9"
-	fiberSwagger "github.com/swaggo/fiber-swagger"
 	_ "github.com/vviveksharma/auth/docs"
 	"github.com/vviveksharma/auth/internal/controllers"
 	"github.com/vviveksharma/auth/internal/middlewares"
@@ -11,7 +11,10 @@ import (
 
 func Routes(app *fiber.App, h *controllers.Handler, client *redis.Client) {
 	app.Get("/health", h.Welcome)
-	app.Get("/swagger/*", fiberSwagger.WrapHandler)
+	app.Static("/docs", "./docs")
+	app.Get("/swagger/*", swagger.New(swagger.Config{
+		URL: "/docs/swagger.json",
+	}))
 	auth := app.Group("/auth")
 	user := app.Group("/user")
 	role := app.Group("/roles")
@@ -27,6 +30,8 @@ func Routes(app *fiber.App, h *controllers.Handler, client *redis.Client) {
 	user.Put("/me", middlewares.ExtractHeadersMiddleware(), h.UpdateUserDetails)
 	user.Get("/:id", middlewares.ExtractRoleIdMiddleware(), h.GetUserByIdDetails)
 	user.Put("/:id/roles", middlewares.ExtractRoleIdMiddleware(), h.AssignUserRole)
+	user.Post("/resetpassword", h.ResetUserPassword)
+	user.Put("/setpassword", h.SetUserPassword)
 
 	role.Get("/", middlewares.ExtractRoleIdMiddleware(), h.ListAllRoles)
 	role.Post("/", h.CreateCustomRole)
