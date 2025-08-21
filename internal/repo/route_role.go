@@ -66,13 +66,13 @@ func (rr *RouteRoleRepository) UpdateRouteRole(roleId string, route string) erro
 	if roleRouteDetails.Error != nil {
 		return roleRouteDetails.Error
 	}
-	if slices.Contains(RoleRouteDetails.Route, route) {
+	if slices.Contains(RoleRouteDetails.Routes, route) {
 		return nil
 	}
 
 	// Append the new route and update
-	RoleRouteDetails.Route = append(RoleRouteDetails.Route, route)
-	update := rr.DB.Model(&models.DBRouteRole{}).Where("role_id = ?", roleId).Update("route", RoleRouteDetails.Route)
+	RoleRouteDetails.Routes = append(RoleRouteDetails.Routes, route)
+	update := rr.DB.Model(&models.DBRouteRole{}).Where("role_id = ?", roleId).Update("route", RoleRouteDetails.Routes)
 	if update.Error != nil {
 		return update.Error
 	}
@@ -101,7 +101,7 @@ func (rr *RouteRoleRepository) DeleteAndUpdateRole(roleId string, addroutes []st
 		}
 
 		var filteredRoutes []string
-		for _, r := range RoleRouteDetails.Route {
+		for _, r := range RoleRouteDetails.Routes {
 			if _, found := removeSet[r]; !found {
 				filteredRoutes = append(filteredRoutes, r)
 			}
@@ -117,7 +117,7 @@ func (rr *RouteRoleRepository) DeleteAndUpdateRole(roleId string, addroutes []st
 
 	// Remove duplicates if any
 	filtered = uniqueStrings(filtered)
-	RoleRouteDetails.Route = RoleRouteDetails.Route[:0]
+	RoleRouteDetails.Routes = RoleRouteDetails.Routes[:0]
 	update := transaction.Model(&models.DBRouteRole{}).Where("role_id = ?", uuid.MustParse(roleId)).Updates(map[string]interface{}{
 		"route": pq.StringArray(filtered),
 	})

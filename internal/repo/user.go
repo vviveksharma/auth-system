@@ -17,6 +17,7 @@ type UserRepositoryInterface interface {
 	UpdateUserFields(userID uuid.UUID, input *dbmodels.UpdateUserRequest) error
 	UpdateUserRoles(userId uuid.UUID, role string) error
 	UpdatePassword(userId uuid.UUID, password string) error
+	ListUsers(tenantId uuid.UUID) (resp []*models.DBUser, err error)
 }
 
 type UserRepository struct {
@@ -146,4 +147,17 @@ func (ur *UserRepository) UpdatePassword(userId uuid.UUID, password string) erro
 		return update.Error
 	}
 	return nil
+}
+
+func (ur *UserRepository) ListUsers(tenantId uuid.UUID) (resp []*models.DBUser, err error) {
+	transaction := ur.DB.Begin()
+	if transaction.Error != nil {
+		return nil, transaction.Error
+	}
+	defer transaction.Rollback()
+	users := transaction.Model(models.DBUser{}).Where("tenant_id = ?", tenantId).Find(&resp)
+	if users.Error != nil {
+		return nil, users.Error
+	}
+	return resp, nil
 }

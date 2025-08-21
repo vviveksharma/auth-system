@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -22,12 +23,15 @@ type TenantService interface {
 	CreateToken(ctx context.Context, req *models.CreateTokenRequest) (*models.CreateTokenResponse, error)
 	ResetPassword(ctx context.Context, req *models.ResetTenantPasswordRequest) (*models.ResetPasswordTenantResponse, error)
 	SetPassword(ctx context.Context, req *models.SetTenantPasswordRequest) (*models.SetTenantPasswordResponse, error)
+	ListUsers(ctx context.Context) (resp []*models.ListUserTenant, err error)
 }
 
 type Tenant struct {
 	TenantRepo      repo.TenantRepositoryInterface
 	TokenRepo       repo.TokenRepositoryInterface
 	TenantLoginRepo repo.TenantLoginRepositoryInterface
+	UserRepo        repo.UserRepositoryInterface
+	UserLoginRepo   repo.LoginRepositoryInterface
 	EmailService    smtpservice.MailServiceInterface
 }
 
@@ -59,6 +63,16 @@ func (t *Tenant) SetupRepo() error {
 		return err
 	}
 	t.TenantLoginRepo = tenantLogin
+	user, err := repo.NewUserRepository(db.DB)
+	if err != nil {
+		return err
+	}
+	t.UserRepo = user
+	userLogin, err := repo.NewLoginRepository(db.DB)
+	if err != nil {
+		return err
+	}
+	t.UserLoginRepo = userLogin
 	return nil
 }
 
@@ -180,8 +194,8 @@ func (t *Tenant) LoginTenant(req *models.LoginTenantRequest, ip string) (resp *m
 		newToken, err := t.TokenRepo.UpdateLoginToken(tenantDetails.Id)
 		if err != nil {
 			return nil, &dbmodels.ServiceResponse{
-				Code: 500,
-				Message: "Failed to update the login token: "+ err.Error(),
+				Code:    500,
+				Message: "Failed to update the login token: " + err.Error(),
 			}
 		}
 		token = newToken.String()
@@ -350,4 +364,35 @@ func (t *Tenant) SetPassword(ctx context.Context, req *models.SetTenantPasswordR
 	return &models.SetTenantPasswordResponse{
 		Message: "Password has been updated successfully.",
 	}, nil
+}
+
+func (t *Tenant) ListUsers(ctx context.Context) (resp []*models.ListUserTenant, err error) {
+	tenantId := ctx.Value("tenant_id").(string)
+	fmt.Println(tenantId)
+	userDetails, err := t.UserRepo.ListUsers(uuid.MustParse(tenantId))
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while fetching user data for the particular tenant: " + err.Error(),
+		}
+	}
+	loginDetails, err := t.UserLoginRepo.GetUsers(uuid.MustParse(tenantId))
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while fetching login data for the particular tenant: " + err.Error(),
+		}
+	}
+	var user models.ListUserTenant
+	for _, users := range userDetails {
+		for _, login := range loginDetails {
+			user.Email = users.Name
+			user.Name = users.Name
+			user.CreatedAt = users.CreatedAt.String()
+			user.Role = login.RoleName
+			user.LogginStatus = login.Revoked
+			resp = append(resp, &user)
+		}
+	}
+	return resp, nil
 }

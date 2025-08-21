@@ -142,7 +142,7 @@ func (r *Role) CreateCustomRole(req *models.CreateCustomRole) (resp *models.Crea
 		err := r.RoleRouteRepo.Create(&dbmodels.DBRouteRole{
 			TenantId: uuid.MustParse("dae760ab-0a7f-4cbd-8603-def85ad8e430"),
 			RoleId:   roleId,
-			Route:    req.Routes,
+			Routes:    req.Routes,
 		})
 		if err != nil {
 			return nil, &dbmodels.ServiceResponse{

@@ -46,4 +46,6 @@ func Routes(app *fiber.App, h *controllers.Handler, client *redis.Client) {
 	tenant.Post("/tokens", middlewares.TenantMiddleWare(), h.CreateToken)
 	tenant.Post("/reset", middlewares.TenantMiddleWare(), h.ResetPassword)
 	tenant.Put("/setpassword", middlewares.TenantMiddleWare(), h.SetPassword)
+	tenant.Get("/users", middlewares.TenantMiddleWare(), h.ListUsers)
+	tenant.Get("/roles")
 }

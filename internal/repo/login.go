@@ -13,6 +13,7 @@ type LoginRepositoryInterface interface {
 	GetUserById(id string) (loginDetails *models.DBLogin, err error)
 	UpdateUserToken(id string, jwt string) error
 	DeleteToken(id string) error
+	GetUsers(tenantId uuid.UUID) (loginDetails []*models.DBLogin, err error)
 }
 
 type LoginRepository struct {
@@ -89,4 +90,17 @@ func (l *LoginRepository) DeleteToken(id string) error {
 	}
 	transaction.Commit()
 	return nil
+}
+
+func (l *LoginRepository) GetUsers(tenantId uuid.UUID) (loginDetails []*models.DBLogin, err error) {
+	transaction := l.DB.Begin()
+	if transaction.Error != nil {
+		return nil, transaction.Error
+	}
+	defer transaction.Rollback()
+	Err := transaction.Model(&models.DBLogin{}).Where("tenant_id = ? ", tenantId).Find(&loginDetails)
+	if Err.Error != nil {
+		return nil, Err.Error
+	}
+	return loginDetails, nil
 }

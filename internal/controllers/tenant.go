@@ -205,3 +205,19 @@ func (h *Handler) SetPassword(ctx *fiber.Ctx) error {
 		Data:    nil,
 	})
 }
+
+func (h *Handler) ListUsers(ctx *fiber.Ctx) error {
+	resp, err := h.TenantService.ListUsers(ctx.Context())
+	if err != nil {
+		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(err)
+		} else {
+			return ctx.JSON(500, "an unexpected error occurred"+err.Error())
+		}
+	}
+	return ctx.Status(fiber.StatusOK).JSON(&dbmodels.ServiceResponse{
+		Code:    200,
+		Message: "The User details are as follow",
+		Data:    resp,
+	})
+}

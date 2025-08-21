@@ -79,12 +79,13 @@ func (u *User) CreateUser(req *models.UserRequest) (*models.UserResponse, error)
 	}
 	id := uuid.MustParse("dae760ab-0a7f-4cbd-8603-def85ad8e430")
 	err = u.UserRepo.CreateUser(&dbmodels.DBUser{
-		TenantId: id,
-		Name:     req.Name,
-		Email:    req.Email,
-		Password: pass,
-		Salt:     salt,
-		Roles:    []string{"admin"},
+		TenantId:  id,
+		Name:      req.Name,
+		CreatedAt: time.Now(),
+		Email:     req.Email,
+		Password:  pass,
+		Salt:      salt,
+		Roles:     []string{"admin"},
 	})
 	if err != nil {
 		return nil, &dbmodels.ServiceResponse{
@@ -122,12 +123,13 @@ func (u *User) RegisterUser(req *models.UserRequest, ctx context.Context) (*mode
 		}
 	}
 	err = u.UserRepo.CreateUser(&dbmodels.DBUser{
-		TenantId: uuid.MustParse(tenantId),
-		Name:     req.Name,
-		Email:    req.Email,
-		Password: hashedpassword,
-		Salt:     salt,
-		Roles:    []string{"guest"},
+		TenantId:  uuid.MustParse(tenantId),
+		CreatedAt: time.Now(),
+		Name:      req.Name,
+		Email:     req.Email,
+		Password:  hashedpassword,
+		Salt:      salt,
+		Roles:     []string{"guest"},
 	})
 	if err != nil {
 		return nil, &dbmodels.ServiceResponse{

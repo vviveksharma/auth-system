@@ -150,6 +150,7 @@ func (a *Auth) LoginUser(req *models.UserLoginRequest) (res *models.UserLoginRes
 	lerr := a.LoginRepo.Create(&dbmodels.DBLogin{
 		UserId:    userDetails.Id,
 		RoleId:    roleId,
+		RoleName:  req.Role,
 		JWTToken:  jwt,
 		IssuedAt:  time.Now(),
 		ExpiresAt: time.Now().Add(30 * time.Minute),

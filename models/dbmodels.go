@@ -9,13 +9,14 @@ import (
 )
 
 type DBUser struct {
-	Id       uuid.UUID      `gorm:"primaryKey,column:id"`
-	TenantId uuid.UUID      `gorm:"type:uuid;not null"`
-	Name     string         `json:"name"`
-	Email    string         `json:"email"`
-	Password string         `json:"password"`
-	Salt     string         `json:"salt"`
-	Roles    pq.StringArray `gorm:"type:text[]" json:"roles"`
+	Id        uuid.UUID      `gorm:"primaryKey,column:id"`
+	CreatedAt time.Time      `gorm:"autoCreateTime"`
+	TenantId  uuid.UUID      `gorm:"type:uuid;not null"`
+	Name      string         `json:"name"`
+	Email     string         `json:"email"`
+	Password  string         `json:"password"`
+	Salt      string         `json:"salt"`
+	Roles     pq.StringArray `gorm:"type:text[]" json:"roles"`
 }
 
 func (DBUser) TableName() string {
@@ -51,6 +52,7 @@ type DBLogin struct {
 	TenantId  uuid.UUID `gorm:"type:uuid;not null"`
 	UserId    uuid.UUID `gorm:"type:uuid;not null"`
 	RoleId    uuid.UUID `gorm:"type:uuid;not null"`
+	RoleName  string    `gorm:"type:string;not null"`
 	JWTToken  string    `gorm:"type:text;not null"`
 	IssuedAt  time.Time `gorm:"autoCreateTime"`
 	ExpiresAt time.Time `gorm:"not null"`
@@ -128,7 +130,7 @@ type DBRouteRole struct {
 	Id       uuid.UUID      `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
 	TenantId uuid.UUID      `gorm:"type:uuid;not null"`
 	RoleId   uuid.UUID      `json:"role_id"`
-	Route    pq.StringArray `gorm:"type:text[]" json:"routes"`
+	Routes   pq.StringArray `gorm:"type:text[]" json:"routes"`
 }
 
 func (DBRouteRole) TableName() string {
@@ -142,20 +144,20 @@ func (*DBRouteRole) BeforeCreate(tx *gorm.DB) error {
 }
 
 type DBResetToken struct {
-    Id        uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
-    UserId    uuid.UUID `gorm:"type:uuid;not null;index"`
-    TenantId  uuid.UUID `gorm:"type:uuid;not null;index"`
+	Id       uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
+	UserId   uuid.UUID `gorm:"type:uuid;not null;index"`
+	TenantId uuid.UUID `gorm:"type:uuid;not null;index"`
 
-    OTPHash   string    `gorm:"type:varchar(255);not null"`
-    OTPType   string    `gorm:"type:varchar(20);default:'numeric'"`
+	OTPHash string `gorm:"type:varchar(255);not null"`
+	OTPType string `gorm:"type:varchar(20);default:'numeric'"`
 
-    ResetToken string   `gorm:"type:varchar(255)"`
-    ExpiresAt  time.Time `gorm:"not null;index"`
-    IsActive   bool      `gorm:"default:true;index"`
+	ResetToken string    `gorm:"type:varchar(255)"`
+	ExpiresAt  time.Time `gorm:"not null;index"`
+	IsActive   bool      `gorm:"default:true;index"`
 
-    CreatedAt time.Time `gorm:"autoCreateTime"`
-    UpdatedAt time.Time `gorm:"autoUpdateTime"`
-    UsedAt    *time.Time // Track when OTP was used
+	CreatedAt time.Time  `gorm:"autoCreateTime"`
+	UpdatedAt time.Time  `gorm:"autoUpdateTime"`
+	UsedAt    *time.Time // Track when OTP was used
 }
 
 func (DBResetToken) TableName() string {
