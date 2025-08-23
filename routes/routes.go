@@ -32,11 +32,13 @@ func Routes(app *fiber.App, h *controllers.Handler, client *redis.Client) {
 	user.Put("/:id/roles", middlewares.ExtractRoleIdMiddleware(), h.AssignUserRole)
 	user.Post("/resetpassword", h.ResetUserPassword)
 	user.Put("/setpassword", h.SetUserPassword)
+	user.Delete("/:id", h.DeleteUser)
 
 	role.Get("/", middlewares.ExtractRoleIdMiddleware(), h.ListAllRoles)
 	role.Post("/", h.CreateCustomRole)
 	role.Put("/permissions", h.UpdateRolePermission)
 	role.Get("/verify", h.VerifyRole)
+	role.Delete("/:id", h.DeleteCustomRole)
 
 	tenant.Post("/", h.CreateTenant)
 	tenant.Post("/login", h.LoginTenant)
@@ -47,5 +49,4 @@ func Routes(app *fiber.App, h *controllers.Handler, client *redis.Client) {
 	tenant.Post("/reset", middlewares.TenantMiddleWare(), h.ResetPassword)
 	tenant.Put("/setpassword", middlewares.TenantMiddleWare(), h.SetPassword)
 	tenant.Get("/users", middlewares.TenantMiddleWare(), h.ListUsers)
-	tenant.Get("/roles")
 }

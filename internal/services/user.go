@@ -22,6 +22,7 @@ type UserService interface {
 	RegisterUser(req *models.UserRequest, ctx context.Context) (*models.UserResponse, error)
 	ResetPassword(req *models.ResetPasswordRequest) (*models.ResetPasswordResponse, error)
 	SetPassword(req *models.UserVerifyOTPRequest) (*models.UserVerifyOTPRequest, error)
+	DeleteUser(userId uuid.UUID) (*models.DeleteUserResponse, error)
 }
 
 type User struct {
@@ -319,4 +320,31 @@ func (u *User) SetPassword(req *models.UserVerifyOTPRequest) (*models.UserVerify
 		}
 	}
 	return nil, nil
+}
+
+func (u *User) DeleteUser(userId uuid.UUID) (*models.DeleteUserResponse, error) { 
+	userDetails, err := u.UserRepo.GetUserDetails(userId)
+	if err != nil {
+		if err.Error() == "record not found" {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    404,
+				Message: fmt.Sprintf("No user found with the provided ID: %s.", userId.String()),
+			}
+		} else {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    500,
+				Message: fmt.Sprintf("An error occurred while retrieving user details for ID %s: %s.", userId.String(), err.Error()),
+			}
+		}
+	}
+	err = u.UserRepo.DeleteUser(userDetails.Id)
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: fmt.Sprintf("Failed to delete user with ID %s: %s.", userId.String(), err.Error()),
+		}
+	}
+	return &models.DeleteUserResponse{
+		Message: fmt.Sprintf("User with ID %s has been deleted successfully.", userId.String()),
+	}, nil
 }

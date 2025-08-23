@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/gofiber/fiber/v2"
@@ -30,7 +31,7 @@ func (h *Handler) CreateTenant(ctx *fiber.Ctx) error {
 		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
 		} else {
-			return ctx.JSON(500, "an unexpected error occurred"+err.Error())
+			return ctx.JSON(500, fmt.Sprintf("An unexpected error occurred while deleting user: %v", err)+err.Error())
 		}
 	}
 	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
@@ -61,7 +62,7 @@ func (h *Handler) LoginTenant(ctx *fiber.Ctx) error {
 		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
 		} else {
-			return ctx.JSON(500, "an unexpected error occurred"+err.Error())
+			return ctx.JSON(500, fmt.Sprintf("An unexpected error occurred while deleting user: %v", err)+err.Error())
 		}
 	}
 	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
@@ -78,7 +79,7 @@ func (h *Handler) ListTokens(ctx *fiber.Ctx) error {
 		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
 		} else {
-			return ctx.JSON(500, "an unexpected error occurred"+err.Error())
+			return ctx.JSON(500, fmt.Sprintf("An unexpected error occurred while deleting user: %v", err)+err.Error())
 		}
 	}
 	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
@@ -101,7 +102,7 @@ func (h *Handler) RevokeToken(ctx *fiber.Ctx) error {
 		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
 		} else {
-			return ctx.JSON(500, "an unexpected error occurred"+err.Error())
+			return ctx.JSON(500, fmt.Sprintf("An unexpected error occurred while deleting user: %v", err)+err.Error())
 		}
 	}
 	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
@@ -133,7 +134,7 @@ func (h *Handler) CreateToken(ctx *fiber.Ctx) error {
 		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
 		} else {
-			return ctx.JSON(500, "an unexpected error occurred"+err.Error())
+			return ctx.JSON(500, fmt.Sprintf("An unexpected error occurred while deleting user: %v", err)+err.Error())
 		}
 	}
 	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
@@ -164,7 +165,7 @@ func (h *Handler) ResetPassword(ctx *fiber.Ctx) error {
 		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
 		} else {
-			return ctx.JSON(500, "an unexpected error occurred"+err.Error())
+			return ctx.JSON(500, fmt.Sprintf("An unexpected error occurred while deleting user: %v", err)+err.Error())
 		}
 	}
 	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
@@ -196,7 +197,7 @@ func (h *Handler) SetPassword(ctx *fiber.Ctx) error {
 		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
 		} else {
-			return ctx.JSON(500, "an unexpected error occurred"+err.Error())
+			return ctx.JSON(500, fmt.Sprintf("An unexpected error occurred while deleting user: %v", err)+err.Error())
 		}
 	}
 	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
@@ -212,7 +213,7 @@ func (h *Handler) ListUsers(ctx *fiber.Ctx) error {
 		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
 		} else {
-			return ctx.JSON(500, "an unexpected error occurred"+err.Error())
+			return ctx.JSON(500, fmt.Sprintf("An unexpected error occurred while deleting user: %v", err)+err.Error())
 		}
 	}
 	return ctx.Status(fiber.StatusOK).JSON(&dbmodels.ServiceResponse{

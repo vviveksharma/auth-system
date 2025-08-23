@@ -1,7 +1,11 @@
 package controllers
 
 import (
+	"fmt"
+	"log"
+
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/vviveksharma/auth/internal/models"
 	responsemodels "github.com/vviveksharma/auth/models"
 )
@@ -139,5 +143,29 @@ func (h *Handler) UpdateRolePermission(ctx *fiber.Ctx) error {
 	return ctx.Status(fiber.StatusOK).JSON(responsemodels.ServiceResponse{
 		Code:    200,
 		Message: resp.Message,
+	})
+}
+
+func (h *Handler) DeleteCustomRole(ctx *fiber.Ctx) error {
+	id := ctx.Params("id")
+	if id == "" {
+		return BadRequest(ctx, "Invalid request: 'id' in path parameter is required and cannot be empty.")
+	}
+	resp, err := h.RoleService.DeleteRole(uuid.MustParse(id))
+	if err != nil {
+		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(serviceErr)
+		} else {
+			log.Printf("Unexpected error while deleting user with id %s: %v", id, err)
+			return ctx.Status(500).JSON(responsemodels.ServiceResponse{
+				Code:    500,
+				Message: fmt.Sprintf("An unexpected error occurred while deleting user: %v", err),
+			})
+		}
+	}
+	return ctx.Status(fiber.StatusOK).JSON(responsemodels.ServiceResponse{
+		Code:    200,
+		Message: "The role was successfully deleted",
+		Data:    resp,
 	})
 }

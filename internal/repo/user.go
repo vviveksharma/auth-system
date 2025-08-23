@@ -18,6 +18,7 @@ type UserRepositoryInterface interface {
 	UpdateUserRoles(userId uuid.UUID, role string) error
 	UpdatePassword(userId uuid.UUID, password string) error
 	ListUsers(tenantId uuid.UUID) (resp []*models.DBUser, err error)
+	DeleteUser(id uuid.UUID) error
 }
 
 type UserRepository struct {
@@ -160,4 +161,19 @@ func (ur *UserRepository) ListUsers(tenantId uuid.UUID) (resp []*models.DBUser, 
 		return nil, users.Error
 	}
 	return resp, nil
+}
+
+func (ur *UserRepository) DeleteUser(id uuid.UUID) error {
+	transaction := ur.DB.Begin()
+	if transaction.Error != nil {
+		return transaction.Error
+	}
+	defer transaction.Rollback()
+	usersDelete := transaction.Model(models.DBUser{}).Where("id = ?", id).Delete(models.DBUser{
+		Id: id,
+	})
+	if usersDelete.Error != nil {
+		return usersDelete.Error
+	}
+	return nil
 }

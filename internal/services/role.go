@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/gofiber/fiber/v2/log"
@@ -16,6 +17,7 @@ type RoleService interface {
 	ListAllRoles(typeFlag string) (response []*models.ListAllRolesResponse, err error)
 	VerifyRole(req *models.VerifyRoleRequest) (response *models.VerifyRoleResponse, err error)
 	UpdateRolePermission(req *models.UpdateRolePermissions) (resp *models.CreateCustomRoleResponse, err error)
+	DeleteRole(roleId uuid.UUID) (*models.DeleteRoleResponse, error)
 }
 
 type Role struct {
@@ -142,7 +144,7 @@ func (r *Role) CreateCustomRole(req *models.CreateCustomRole) (resp *models.Crea
 		err := r.RoleRouteRepo.Create(&dbmodels.DBRouteRole{
 			TenantId: uuid.MustParse("dae760ab-0a7f-4cbd-8603-def85ad8e430"),
 			RoleId:   roleId,
-			Routes:    req.Routes,
+			Routes:   req.Routes,
 		})
 		if err != nil {
 			return nil, &dbmodels.ServiceResponse{
@@ -186,5 +188,40 @@ func (r *Role) UpdateRolePermission(req *models.UpdateRolePermissions) (resp *mo
 	}
 	return &models.CreateCustomRoleResponse{
 		Message: "The role permissions for '" + req.RoleName + "' have been updated successfully.",
+	}, nil
+}
+
+func (r *Role) DeleteRole(roleId uuid.UUID) (*models.DeleteRoleResponse, error) {
+	roleDetails, err := r.RoleRepo.GetRolesDetails(&dbmodels.DBRoles{
+		RoleId: roleId,
+	})
+	if err != nil {
+		if err.Error() == "record not found" {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    404,
+				Message: "No role found with the provided role ID. Please verify the role ID and try again.",
+			}
+		} else {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    500,
+				Message: "An unexpected error occurred while retrieving role details from the database: " + err.Error(),
+			}
+		}
+	}
+	if roleDetails.RoleType == "default" {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    404,
+			Message: "System-level roles cannot be deleted. Only custom roles created by you can be removed.",
+		}
+	}
+	err = r.RoleRepo.DeleteRole(roleDetails.RoleId)
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "An error occurred while attempting to delete the role: " + err.Error() + ". Please contact support if the issue persists.",
+		}
+	}
+	return &models.DeleteRoleResponse{
+		Message: fmt.Sprintf("The role with ID '%s' has been deleted successfully.", roleDetails.RoleId.String()),
 	}, nil
 }

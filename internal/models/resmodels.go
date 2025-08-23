@@ -104,3 +104,11 @@ type ListUserTenant struct {
 	LogginStatus bool   `json:"log_status"`
 	CreatedAt    string `json:"created_at"`
 }
+
+type DeleteUserResponse struct {
+	Message string `json:"message"`
+}
+
+type DeleteRoleResponse struct {
+	Message string `json:"message"`
+}

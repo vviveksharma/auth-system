@@ -13,6 +13,8 @@ type RoleRepositoryInterface interface {
 	GetAllRoles() ([]*models.DBRoles, error)
 	FindRoleId(roleName string) (roleId uuid.UUID, err error)
 	FindByName(roleName string) (*models.DBRoles, error)
+	DeleteRole(roleId uuid.UUID) error
+	GetRolesDetails(conditions *models.DBRoles) (resp *models.DBRoles, err error)
 }
 
 type RoleRepository struct {
@@ -65,6 +67,19 @@ func (r *RoleRepository) FindRoleId(roleName string) (roleId uuid.UUID, err erro
 	return roles.RoleId, nil
 }
 
+func (r *RoleRepository) GetRolesDetails(conditions *models.DBRoles) (resp *models.DBRoles, err error) {
+	transaction := r.DB.Begin()
+	if transaction.Error != nil {
+		return nil, transaction.Error
+	}
+	defer transaction.Rollback()
+	rerr := transaction.First(&resp, &conditions)
+	if rerr.Error != nil {
+		return nil, rerr.Error
+	}
+	return resp, nil
+}
+
 func (r *RoleRepository) CreateRole(req *models.DBRoles) error {
 	transaction := r.DB.Begin()
 	if transaction.Error != nil {
@@ -90,4 +105,19 @@ func (r *RoleRepository) FindByName(roleName string) (resp *models.DBRoles, err 
 		return nil, rr.Error
 	}
 	return resp, nil
+}
+
+func (r *RoleRepository) DeleteRole(roleId uuid.UUID) error {
+	transaction := r.DB.Begin()
+	if transaction.Error != nil {
+		return transaction.Error
+	}
+	defer transaction.Rollback()
+	delete := transaction.Model(models.DBRoles{}).Where("role_id = ?", roleId).Delete(models.DBRoles{
+		RoleId: roleId,
+	})
+	if delete.Error != nil {
+		return delete.Error
+	}
+	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/vviveksharma/auth/internal/models"
 	responsemodels "github.com/vviveksharma/auth/models"
 )
@@ -32,7 +33,7 @@ func (h *Handler) CreateUser(ctx *fiber.Ctx) error {
 		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
 		} else {
-			return ctx.JSON(500, "an unexpected error occurred")
+			return ctx.JSON(500, fmt.Sprintf("An unexpected error occurred while deleting user: %v", err))
 		}
 	}
 	return ctx.Status(fiber.StatusOK).JSON(responsemodels.ServiceResponse{
@@ -62,7 +63,7 @@ func (h *Handler) GetUserDetails(ctx *fiber.Ctx) error {
 		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
 		} else {
-			return ctx.JSON(500, "an unexpected error occurred")
+			return ctx.JSON(500, fmt.Sprintf("An unexpected error occurred while deleting user: %v", err))
 		}
 	}
 	return ctx.Status(fiber.StatusOK).JSON(responsemodels.ServiceResponse{
@@ -106,7 +107,7 @@ func (h *Handler) UpdateUserDetails(ctx *fiber.Ctx) error {
 		} else {
 			return ctx.Status(500).JSON(responsemodels.ServiceResponse{
 				Code:    500,
-				Message: "an unexpected error occurred",
+				Message: fmt.Sprintf("An unexpected error occurred while deleting user: %v", err),
 			})
 		}
 	}
@@ -138,7 +139,7 @@ func (h *Handler) GetUserByIdDetails(ctx *fiber.Ctx) error {
 		} else {
 			return ctx.Status(500).JSON(responsemodels.ServiceResponse{
 				Code:    500,
-				Message: "an unexpected error occurred",
+				Message: fmt.Sprintf("An unexpected error occurred while deleting user: %v", err),
 			})
 		}
 	}
@@ -184,7 +185,7 @@ func (h *Handler) AssignUserRole(ctx *fiber.Ctx) error {
 		} else {
 			return ctx.Status(500).JSON(responsemodels.ServiceResponse{
 				Code:    500,
-				Message: "an unexpected error occurred",
+				Message: fmt.Sprintf("An unexpected error occurred while deleting user: %v", err),
 			})
 		}
 	}
@@ -223,7 +224,7 @@ func (h *Handler) RegisterUser(ctx *fiber.Ctx) error {
 		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
 		} else {
-			return ctx.JSON(500, "an unexpected error occurred")
+			return ctx.JSON(500, fmt.Sprintf("An unexpected error occurred while deleting user: %v", err))
 		}
 	}
 	return ctx.Status(fiber.StatusOK).JSON(responsemodels.ServiceResponse{
@@ -262,7 +263,7 @@ func (h *Handler) ResetUserPassword(ctx *fiber.Ctx) error {
 		} else {
 			return ctx.Status(500).JSON(responsemodels.ServiceResponse{
 				Code:    500,
-				Message: "an unexpected error occurred",
+				Message: fmt.Sprintf("An unexpected error occurred while deleting user: %v", err),
 			})
 		}
 	}
@@ -310,13 +311,37 @@ func (h *Handler) SetUserPassword(ctx *fiber.Ctx) error {
 		} else {
 			return ctx.Status(500).JSON(responsemodels.ServiceResponse{
 				Code:    500,
-				Message: "an unexpected error occurred",
+				Message: fmt.Sprintf("An unexpected error occurred while deleting user: %v", err),
 			})
 		}
 	}
 	return ctx.Status(fiber.StatusOK).JSON(responsemodels.ServiceResponse{
 		Code:    200,
 		Message: "The password was successfully updated",
+		Data:    resp,
+	})
+}
+
+func (h *Handler) DeleteUser(ctx *fiber.Ctx) error {
+	id := ctx.Params("id")
+	if id == "" {
+		return BadRequest(ctx, "Invalid request: 'id' in path parameter is required and cannot be empty.")
+	}
+	resp, err := h.UserService.DeleteUser(uuid.MustParse(id))
+	if err != nil {
+		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(serviceErr)
+		} else {
+			log.Printf("Unexpected error while deleting user with id %s: %v", id, err)
+			return ctx.Status(500).JSON(responsemodels.ServiceResponse{
+				Code:    500,
+				Message: fmt.Sprintf("An unexpected error occurred while deleting user: %v", err),
+			})
+		}
+	}
+	return ctx.Status(fiber.StatusOK).JSON(responsemodels.ServiceResponse{
+		Code:    200,
+		Message: "The user was successfully deleted",
 		Data:    resp,
 	})
 }
