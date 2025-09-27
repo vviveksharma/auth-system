@@ -10,12 +10,14 @@ import (
 
 type DBUser struct {
 	Id        uuid.UUID      `gorm:"primaryKey,column:id"`
-	CreatedAt time.Time      `gorm:"autoCreateTime"`
+	CreatedAt time.Time      `gorm:"column:created_at;not_null"`
+	UpdatedAt time.Time      `gorm:"column:updated_at;not_null"`
 	TenantId  uuid.UUID      `gorm:"type:uuid;not null"`
 	Name      string         `json:"name"`
 	Email     string         `json:"email"`
 	Password  string         `json:"password"`
 	Salt      string         `json:"salt"`
+	Status    bool           `json:"status"`
 	Roles     pq.StringArray `gorm:"type:text[]" json:"roles"`
 }
 
@@ -30,11 +32,14 @@ func (*DBUser) BeforeCreate(tx *gorm.DB) error {
 }
 
 type DBRoles struct {
-	Id       uuid.UUID `gorm:"primaryKey,column:id"`
-	Role     string    `json:"role"`
-	RoleId   uuid.UUID `json:"role_id"`
-	TenantId uuid.UUID `gorm:"type:uuid;not null"`
-	RoleType string    `json:"role_type"`
+	Id        uuid.UUID `gorm:"primaryKey,column:id"`
+	Role      string    `json:"role"`
+	RoleId    uuid.UUID `json:"role_id"`
+	TenantId  uuid.UUID `gorm:"type:uuid;not null"`
+	RoleType  string    `json:"role_type"`
+	Status    bool      `json:"status"`
+	CreatedAt time.Time `gorm:"column:created_at;not_null"`
+	UpdatedAt time.Time `gorm:"column:updated_at;not_null"`
 }
 
 func (DBRoles) TableName() string {
@@ -57,6 +62,7 @@ type DBLogin struct {
 	IssuedAt  time.Time `gorm:"autoCreateTime"`
 	ExpiresAt time.Time `gorm:"not null"`
 	Revoked   bool      `gorm:"default:false;not null"`
+	IPAddress string    `gorm:"type:varchar(45)"`
 }
 
 func (DBLogin) TableName() string {
@@ -70,12 +76,15 @@ func (*DBLogin) BeforeCreate(tx *gorm.DB) error {
 }
 
 type DBTenant struct {
-	Id       uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
-	Name     string    `json:"name"`
-	Email    string    `json:"email"`
-	Salt     string    `json:"salt"`
-	Campany  string    `json:"campany"`
-	Password string    `json:"password"`
+	Id        uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
+	Name      string    `json:"name"`
+	Email     string    `json:"email"`
+	Salt      string    `json:"salt"`
+	Campany   string    `json:"campany"`
+	Password  string    `json:"password"`
+	Status    string    `json:"status" gorm:"default:'active';index"`
+	CreatedAt time.Time `gorm:"autoCreateTime"`
+	UpdatedAt time.Time `gorm:"autoUpdateTime"`
 }
 
 func (DBTenant) TableName() string {
@@ -89,13 +98,17 @@ func (*DBTenant) BeforeCreate(tx *gorm.DB) error {
 }
 
 type DBToken struct {
-	Id             uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
-	TenantId       uuid.UUID `gorm:"type:uuid;not null"`
-	Name           string    `json:"name"`
-	CreatedAt      time.Time `gorm:"not null"`
-	ExpiresAt      time.Time `gorm:"not null"`
-	IsActive       bool      `json:"is_active"`
-	ApplicationKey bool      `json:"application_key"`
+	Id             uuid.UUID  `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
+	TenantId       uuid.UUID  `gorm:"type:uuid;not null"`
+	Name           string     `json:"name"`
+	CreatedAt      time.Time  `gorm:"column:created_at;not_null"`
+	UpdatedAt      time.Time  `gorm:"column:updated_at;not_null"`
+	LastUsedAt     *time.Time `json:"last_used_at"`
+	UsageCount     int64      `json:"usage_count" gorm:"default:0"`
+	ExpiresAt      time.Time  `gorm:"not null"`
+	IsActive       bool       `json:"is_active"`
+	ApplicationKey bool       `json:"application_key"`
+	RevokedAt      *time.Time `json:"revoked_at"`
 }
 
 func (DBToken) TableName() string {
@@ -110,6 +123,7 @@ func (*DBToken) BeforeCreate(tx *gorm.DB) error {
 
 type DBTenantLogin struct {
 	Id        uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
+	Email     string    `json:"email"`
 	TenantId  uuid.UUID `gorm:"type:uuid;not null"`
 	ExpiresAt time.Time `gorm:"not null"`
 	IsActive  bool      `json:"is_active"`
@@ -127,10 +141,12 @@ func (*DBTenantLogin) BeforeCreate(tx *gorm.DB) error {
 }
 
 type DBRouteRole struct {
-	Id       uuid.UUID      `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
-	TenantId uuid.UUID      `gorm:"type:uuid;not null"`
-	RoleId   uuid.UUID      `json:"role_id"`
-	Routes   pq.StringArray `gorm:"type:text[]" json:"routes"`
+	Id          uuid.UUID      `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
+	RoleName    string         `json:"role_name"`
+	TenantId    uuid.UUID      `gorm:"type:uuid;not null"`
+	RoleId      uuid.UUID      `json:"role_id"`
+	Permissions string         `gorm:"type:jsonb" json:"permissions"`
+	Routes      pq.StringArray `gorm:"type:text[]" json:"routes"`
 }
 
 func (DBRouteRole) TableName() string {

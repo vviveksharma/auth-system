@@ -9,7 +9,7 @@ import (
 )
 
 func AutoMigrator(DB *gorm.DB) {
-	err := DB.AutoMigrate(models.DBUser{}, models.DBRoles{}, models.DBLogin{}, models.DBTenant{}, models.DBToken{}, models.DBTenantLogin{}, models.DBRouteRole{})
+	err := DB.AutoMigrate(models.DBUser{}, models.DBRoles{}, models.DBLogin{}, models.DBTenant{}, models.DBToken{}, models.DBTenantLogin{}, models.DBRouteRole{}, models.DBResetToken{})
 	if err != nil {
 		log.Fatalln("error while migrating the tables: ", err.Error())
 	}

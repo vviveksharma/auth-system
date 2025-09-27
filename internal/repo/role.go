@@ -10,11 +10,15 @@ import (
 
 type RoleRepositoryInterface interface {
 	CreateRole(req *models.DBRoles) error
-	GetAllRoles() ([]*models.DBRoles, error)
+	GetAllRoles(roleTypeFlag string, tenantId uuid.UUID, page, pageSize int) ([]*models.DBRoles, int64, error)
 	FindRoleId(roleName string) (roleId uuid.UUID, err error)
 	FindByName(roleName string) (*models.DBRoles, error)
 	DeleteRole(roleId uuid.UUID) error
 	GetRolesDetails(conditions *models.DBRoles) (resp *models.DBRoles, err error)
+	ChangeStatus(flag bool, roleId uuid.UUID) error
+	GetRoleByName(roleName string, tenantId uuid.UUID) (*models.DBRoles, error)
+	GetRolesByTenant(tenantId uuid.UUID, roleType string) ([]*models.DBRoles, error)
+	GetRoleUsageCount(roleId uuid.UUID, tenantId string) (int64, error)
 }
 
 type RoleRepository struct {
@@ -25,25 +29,47 @@ func NewRoleRepository(db *gorm.DB) (RoleRepositoryInterface, error) {
 	return &RoleRepository{DB: db}, nil
 }
 
-func (r *RoleRepository) GetAllRoles() ([]*models.DBRoles, error) {
-	fmt.Println("Starting GetAllRoles transaction")
-	transaction := r.DB.Begin()
-	if transaction.Error != nil {
-		fmt.Printf("Failed to begin transaction in GetAllRoles: %v\n", transaction.Error)
-		return nil, transaction.Error
+func (r *RoleRepository) GetAllRoles(roleTypeFlag string, tenantId uuid.UUID, page, pageSize int) ([]*models.DBRoles, int64, error) {
+	fmt.Println("Starting GetAllRoles transaction with pagination")
+
+	var totalCount int64
+	var roleDetails []*models.DBRoles
+
+	// Build base query conditions
+	baseQuery := r.DB.Model(&models.DBRoles{}).Where("tenant_id = ?", tenantId)
+
+	// Add role type filter if provided
+	if roleTypeFlag != "" && roleTypeFlag != "all" {
+		baseQuery = baseQuery.Where("role_type = ?", roleTypeFlag)
 	}
-	defer func() {
-		fmt.Println("Rolling back GetAllRoles transaction")
-		transaction.Rollback()
-	}()
-	roleDetails := []*models.DBRoles{}
-	roles := transaction.Find(&roleDetails)
-	if roles.Error != nil {
-		fmt.Printf("Error fetching roles in GetAllRoles: %v\n", roles.Error)
-		return nil, roles.Error
+
+	// Get total count for pagination metadata
+	if err := baseQuery.Count(&totalCount).Error; err != nil {
+		fmt.Printf("Error counting roles in GetAllRoles: %v\n", err)
+		return nil, 0, err
 	}
-	fmt.Printf("Successfully fetched %d roles\n", len(roleDetails))
-	return roleDetails, nil
+
+	// Calculate offset for pagination
+	offset := (page - 1) * pageSize
+
+	// Get paginated results
+	query := r.DB.Where("tenant_id = ?", tenantId)
+	if roleTypeFlag != "" && roleTypeFlag != "all" {
+		query = query.Where("role_type = ?", roleTypeFlag)
+	}
+
+	if err := query.Order("created_at DESC").
+		Limit(pageSize).
+		Offset(offset).
+		Find(&roleDetails).Error; err != nil {
+		fmt.Printf("Error fetching paginated roles in GetAllRoles: %v\n", err)
+		return nil, 0, err
+	}
+
+	fmt.Printf("Successfully fetched %d roles (page %d, pageSize %d, total %d)\n",
+		len(roleDetails), page, pageSize, totalCount)
+
+	return roleDetails, totalCount, nil
 }
 
 func (r *RoleRepository) FindRoleId(roleName string) (roleId uuid.UUID, err error) {
@@ -120,4 +146,63 @@ func (r *RoleRepository) DeleteRole(roleId uuid.UUID) error {
 		return delete.Error
 	}
 	return nil
+}
+
+func (r *RoleRepository) ChangeStatus(flag bool, roleId uuid.UUID) error {
+	transaction := r.DB.Begin()
+	if transaction.Error != nil {
+		return transaction.Error
+	}
+	defer transaction.Rollback()
+	if !flag { // disable the role
+		update := transaction.Model(&models.DBRoles{}).Where("role_id = ?", roleId).Updates(map[string]interface{}{
+			"status": false,
+		})
+		if update.Error != nil {
+			return update.Error
+		}
+	} else { // enable the role
+		update := transaction.Model(&models.DBRoles{}).Where("role_id = ?", roleId).Updates(map[string]interface{}{
+			"status": true,
+		})
+		if update.Error != nil {
+			return update.Error
+		}
+	}
+	transaction.Commit()
+	return nil
+}
+
+// **NEW: Additional methods for seeding**
+func (r *RoleRepository) GetRoleByName(roleName string, tenantId uuid.UUID) (*models.DBRoles, error) {
+	var role models.DBRoles
+	err := r.DB.Where("role = ? AND tenant_id = ?", roleName, tenantId).First(&role).Error
+	if err != nil {
+		return nil, err
+	}
+	return &role, nil
+}
+
+func (r *RoleRepository) GetRolesByTenant(tenantId uuid.UUID, roleType string) ([]*models.DBRoles, error) {
+	var roles []*models.DBRoles
+	query := r.DB.Where("tenant_id = ?", tenantId)
+
+	if roleType != "" && roleType != "all" {
+		query = query.Where("role_type = ?", roleType)
+	}
+
+	err := query.Find(&roles).Error
+	if err != nil {
+		return nil, err
+	}
+	return roles, nil
+}
+
+func (r *RoleRepository) GetRoleUsageCount(roleId uuid.UUID, tenantId string) (int64, error) {
+	var count int64
+	// This assumes users have roles in a roles array - adjust based on your user model
+	err := r.DB.Model(&models.DBUser{}).
+		Where("tenant_id = ? AND ? = ANY(roles)", tenantId, roleId.String()).
+		Count(&count).Error
+	return count, err
 }

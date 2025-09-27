@@ -20,9 +20,9 @@ func ConnectDB() {
 	DB = db
 	sqlDb, err := DB.DB()
 	if err != nil {
-        fmt.Printf("failed to get database connection: %v", err)
-    }
-    fmt.Println("The database ping returned: ",sqlDb.Ping())
+		fmt.Printf("failed to get database connection: %v", err)
+	}
+	fmt.Println("The database ping returned: ", sqlDb.Ping())
 
 	// Making migrations
 	migrations.AutoMigrator(DB)

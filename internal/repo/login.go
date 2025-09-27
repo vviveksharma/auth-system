@@ -14,6 +14,7 @@ type LoginRepositoryInterface interface {
 	UpdateUserToken(id string, jwt string) error
 	DeleteToken(id string) error
 	GetUsers(tenantId uuid.UUID) (loginDetails []*models.DBLogin, err error)
+	Logout(userId uuid.UUID) error
 }
 
 type LoginRepository struct {
@@ -66,7 +67,7 @@ func (l *LoginRepository) UpdateUserToken(id string, jwt string) error {
 		return login.Error
 	}
 	if err := transaction.Model(&models.DBLogin{}).Where("id = ?", uuid.MustParse(id)).Updates(map[string]interface{}{
-		"token":      jwt,
+		"jwt_token":  jwt,
 		"issued_at":  time.Now(),
 		"expires_at": time.Now().Add(30 * time.Minute),
 	}).Error; err != nil {
@@ -103,4 +104,24 @@ func (l *LoginRepository) GetUsers(tenantId uuid.UUID) (loginDetails []*models.D
 		return nil, Err.Error
 	}
 	return loginDetails, nil
+}
+
+func (l *LoginRepository) Logout(userId uuid.UUID) error {
+	transaction := l.DB.Begin()
+	if transaction.Error != nil {
+		return transaction.Error
+	}
+	defer transaction.Rollback()
+	var loginDetails models.DBLogin
+	findDetails := transaction.Model(&models.DBLogin{}).Where("user_id = ?", userId).Find(&loginDetails)
+	if findDetails.Error != nil {
+		return findDetails.Error
+	}
+	update := transaction.Model(&models.DBLogin{}).Where("user_id = ?", userId).Updates(map[string]interface{}{
+		"revoked": true,
+	})
+	if update.Error != nil {
+		return update.Error
+	}
+	return nil
 }

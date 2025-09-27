@@ -25,12 +25,16 @@ definitions:
     type: object
   models.CreateCustomRole:
     properties:
-      role:
-        type: string
-      routes:
+      Permissions:
         items:
-          type: string
+          $ref: '#/definitions/models.Permission'
         type: array
+      description:
+        type: string
+      display_name:
+        type: string
+      name:
+        type: string
     type: object
   models.InternalServerErrorResponse:
     properties:
@@ -39,6 +43,17 @@ definitions:
         type: integer
       message:
         example: Internal server error occurred.
+        type: string
+    type: object
+  models.Permission:
+    properties:
+      description:
+        type: string
+      methods:
+        items:
+          type: string
+        type: array
+      route:
         type: string
     type: object
   models.ResetPasswordRequest:
@@ -79,11 +94,11 @@ definitions:
     properties:
       add_permissions:
         items:
-          type: string
+          $ref: '#/definitions/models.Permission'
         type: array
       remove_permissions:
         items:
-          type: string
+          $ref: '#/definitions/models.Permission'
         type: array
       role:
         type: string
@@ -172,7 +187,7 @@ paths:
       - Auth
   /refresh-token:
     post:
-      description: Refreshes and returns a new JWT token for the authenticated user.
+      description: Logs out the logged in user and invalidates its existing token.
       produces:
       - application/json
       responses:
@@ -184,7 +199,7 @@ paths:
           description: Unexpected server error
           schema:
             $ref: '#/definitions/models.InternalServerErrorResponse'
-      summary: Refresh JWT Token
+      summary: Logout the user
       tags:
       - Auth
   /roles:
@@ -215,7 +230,7 @@ paths:
       summary: List all roles
       tags:
       - Roles
-  /roles/custom:
+  /roles/:
     post:
       consumes:
       - application/json
@@ -255,7 +270,7 @@ paths:
       summary: Create custom role
       tags:
       - Roles
-  /roles/permissions:
+  /roles/:id/permissions:
     put:
       consumes:
       - application/json
@@ -295,6 +310,154 @@ paths:
       summary: Update role permissions
       tags:
       - Roles
+  /roles/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes a custom role by its ID. Only custom roles can be deleted;
+        system roles are protected. Any users currently assigned this role will need
+        to be reassigned before deletion.
+      parameters:
+      - description: Role ID to delete. Must be a valid UUID format.
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Role deleted successfully.
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+        "400":
+          description: Bad Request. This occurs if the 'id' path parameter is missing,
+            empty, or not a valid UUID format.
+          schema:
+            $ref: '#/definitions/models.BadRequestResponse'
+        "409":
+          description: Conflict. This occurs if the role is currently assigned to
+            users and cannot be deleted.
+          schema:
+            $ref: '#/definitions/models.ConflictResponse'
+        "500":
+          description: Internal server error. This occurs if there is an unexpected
+            error while deleting the role.
+          schema:
+            $ref: '#/definitions/models.InternalServerErrorResponse'
+      summary: Delete custom role
+      tags:
+      - Roles
+  /roles/{id}/disable:
+    put:
+      consumes:
+      - application/json
+      description: Disables a role by its ID, preventing it from being assigned to
+        new users. Existing users with this role will retain it but new assignments
+        are blocked. System roles cannot be disabled.
+      parameters:
+      - description: Role ID to disable. Must be a valid UUID format.
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Role disabled successfully.
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+        "400":
+          description: Bad Request. This occurs if the 'id' path parameter is missing,
+            empty, or not a valid UUID format.
+          schema:
+            $ref: '#/definitions/models.BadRequestResponse'
+        "409":
+          description: Conflict. This occurs if the role is already disabled.
+          schema:
+            $ref: '#/definitions/models.ConflictResponse'
+        "500":
+          description: Internal server error. This occurs if there is an unexpected
+            error while disabling the role.
+          schema:
+            $ref: '#/definitions/models.InternalServerErrorResponse'
+      summary: Disable role
+      tags:
+      - Roles
+  /roles/{id}/enable:
+    put:
+      consumes:
+      - application/json
+      description: Enables a role by its ID, making it available for assignment to
+        users. Only disabled roles can be enabled. System roles are always enabled
+        by default.
+      parameters:
+      - description: Role ID to enable. Must be a valid UUID format.
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Role enabled successfully.
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+        "400":
+          description: Bad Request. This occurs if the 'id' path parameter is missing,
+            empty, or not a valid UUID format.
+          schema:
+            $ref: '#/definitions/models.BadRequestResponse'
+        "409":
+          description: Conflict. This occurs if the role is already enabled.
+          schema:
+            $ref: '#/definitions/models.ConflictResponse'
+        "500":
+          description: Internal server error. This occurs if there is an unexpected
+            error while enabling the role.
+          schema:
+            $ref: '#/definitions/models.InternalServerErrorResponse'
+      summary: Enable role
+      tags:
+      - Roles
+  /roles/{id}/permissions:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves all routes and permissions associated with a specific
+        role by role ID. This is useful for role management and permission auditing.
+        Returns detailed permission structure including HTTP methods and route information.
+      parameters:
+      - description: Role ID to retrieve permissions for. Must be a valid UUID format.
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Role permissions retrieved successfully. Data contains the
+            detailed permission structure.
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+        "400":
+          description: Bad Request. This occurs if the 'id' path parameter is missing,
+            empty, or not a valid UUID format.
+          schema:
+            $ref: '#/definitions/models.BadRequestResponse'
+        "500":
+          description: Internal server error. This occurs if there is an unexpected
+            error while retrieving role permissions.
+          schema:
+            $ref: '#/definitions/models.InternalServerErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get role permissions
+      tags:
+      - Roles
   /roles/verify:
     post:
       consumes:
@@ -312,7 +475,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: Role exists. Data contains verification result.
+          description: Role verified successfully.
           schema:
             $ref: '#/definitions/models.ServiceResponse'
         "400":
@@ -334,6 +497,39 @@ paths:
       tags:
       - Roles
   /user/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a user from the system using their unique identifier
+      parameters:
+      - description: User ID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User successfully deleted
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+        "400":
+          description: Bad request, missing required fields
+          schema:
+            $ref: '#/definitions/models.BadRequestResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.InternalServerErrorResponse'
+      summary: Delete a user
+      tags:
+      - User
     get:
       description: Fetches the details of a user by their unique user ID. This endpoint
         is typically used by admins or services that need to look up users.
@@ -593,6 +789,109 @@ paths:
           schema:
             $ref: '#/definitions/models.InternalServerErrorResponse'
       summary: Register New User
+      tags:
+      - User
+  /users:
+    get:
+      description: Fetches a paginated list of all users in the system. This endpoint
+        is typically used by admins to view and manage users. Returns user details
+        with pagination support.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Users list successfully retrieved with pagination
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+        "401":
+          description: Unauthorized, invalid or missing authentication
+          schema:
+            $ref: '#/definitions/models.UnauthorizedResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.InternalServerErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: List All Users
+      tags:
+      - User
+  /users/{id}/disable:
+    put:
+      description: Disables a user account, preventing them from accessing the system.
+        Only users with sufficient privileges can perform this action.
+      parameters:
+      - description: Unique identifier of the user to disable
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User account disabled successfully
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+        "400":
+          description: Bad request, missing required fields
+          schema:
+            $ref: '#/definitions/models.BadRequestResponse'
+        "401":
+          description: Unauthorized, invalid or missing authentication
+          schema:
+            $ref: '#/definitions/models.UnauthorizedResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.InternalServerErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Disable User Account
+      tags:
+      - User
+  /users/{id}/enable:
+    put:
+      description: Enables a previously disabled user account, allowing them to access
+        the system again. Only users with sufficient privileges can perform this action.
+      parameters:
+      - description: Unique identifier of the user to enable
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User account enabled successfully
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+        "400":
+          description: Bad request, missing required fields
+          schema:
+            $ref: '#/definitions/models.BadRequestResponse'
+        "401":
+          description: Unauthorized, invalid or missing authentication
+          schema:
+            $ref: '#/definitions/models.UnauthorizedResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.InternalServerErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Enable User Account
       tags:
       - User
 swagger: "2.0"

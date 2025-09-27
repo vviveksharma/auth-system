@@ -7,40 +7,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/vviveksharma/auth/internal/models"
+	"github.com/vviveksharma/auth/internal/pagination"
 	responsemodels "github.com/vviveksharma/auth/models"
 )
-
-func (h *Handler) CreateUser(ctx *fiber.Ctx) error {
-	var req *models.UserRequest
-	err := ctx.BodyParser(&req)
-	if err != nil {
-		log.Println("Error in parsing the request Body" + err.Error())
-		return ctx.Status(fiber.StatusUnprocessableEntity).JSON(&responsemodels.StatusUnprocessableEntityResponse{
-			Code:    fiber.StatusUnprocessableEntity,
-			Message: "error while parsing the requestBody: " + err.Error(),
-		})
-	}
-	if req.Email == "" || req.Name == "" || req.Password == "" {
-		log.Println("the requestBody: ", req)
-		return ctx.Status(fiber.StatusBadRequest).JSON(&responsemodels.ServiceResponse{
-			Code:    fiber.StatusBadRequest,
-			Message: "Missing required fields: name, email, and password are required",
-		})
-	}
-	fmt.Println("the userdetails from the request ", req)
-	resp, err := h.UserService.CreateUser(req)
-	if err != nil {
-		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
-			return ctx.Status(serviceErr.Code).JSON(err)
-		} else {
-			return ctx.JSON(500, fmt.Sprintf("An unexpected error occurred while deleting user: %v", err))
-		}
-	}
-	return ctx.Status(fiber.StatusOK).JSON(responsemodels.ServiceResponse{
-		Code:    200,
-		Message: resp.Message,
-	})
-}
 
 // GetUserDetails retrieves details of the currently authenticated user.
 //
@@ -58,7 +27,7 @@ func (h *Handler) GetUserDetails(ctx *fiber.Ctx) error {
 	userId := ctx.Locals("userId").(string)
 	fmt.Println("the userid: ", userId)
 	req.Id = userId
-	resp, err := h.UserService.GetUserDetails(req)
+	resp, err := h.UserService.GetUserDetails(ctx.Context(), req)
 	if err != nil {
 		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
@@ -100,7 +69,7 @@ func (h *Handler) UpdateUserDetails(ctx *fiber.Ctx) error {
 	}
 	userId := ctx.Locals("userId").(string)
 	fmt.Println("the userid: ", userId)
-	resp, err := h.UserService.UpdateUserDetails(req, userId)
+	resp, err := h.UserService.UpdateUserDetails(ctx.Context(), req, userId)
 	if err != nil {
 		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
@@ -132,7 +101,7 @@ func (h *Handler) UpdateUserDetails(ctx *fiber.Ctx) error {
 // @Security ApiKeyAuth
 func (h *Handler) GetUserByIdDetails(ctx *fiber.Ctx) error {
 	userId := ctx.Params("id")
-	resp, err := h.UserService.GetUserById(userId)
+	resp, err := h.UserService.GetUserById(ctx.Context(), userId)
 	if err != nil {
 		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
@@ -178,7 +147,7 @@ func (h *Handler) AssignUserRole(ctx *fiber.Ctx) error {
 	if req.Role == "" {
 		return BadRequest(ctx, "Invalid request: 'roleName' fields is required and cannot be empty.")
 	}
-	resp, err := h.UserService.AssignUserRole(req, userId)
+	resp, err := h.UserService.AssignUserRole(ctx.Context(), req, userId)
 	if err != nil {
 		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
@@ -219,7 +188,7 @@ func (h *Handler) RegisterUser(ctx *fiber.Ctx) error {
 	if req.Email == "" || req.Name == "" || req.Password == "" {
 		return BadRequest(ctx, "Invalid request: 'email' , 'password' and 'name' fields are required and cannot be empty.")
 	}
-	resp, err := h.UserService.RegisterUser(req, ctx.Context())
+	resp, err := h.UserService.RegisterUser(ctx.Context(), req)
 	if err != nil {
 		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
@@ -256,7 +225,7 @@ func (h *Handler) ResetUserPassword(ctx *fiber.Ctx) error {
 	if req.Email == "" {
 		return BadRequest(ctx, "Invalid request: 'email' field is required and cannot be empty.")
 	}
-	resp, err := h.UserService.ResetPassword(req)
+	resp, err := h.UserService.ResetPassword(ctx.Context(), req)
 	if err != nil {
 		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(serviceErr)
@@ -304,7 +273,7 @@ func (h *Handler) SetUserPassword(ctx *fiber.Ctx) error {
 			Message: "Password confirmation failed: new password and confirmation do not match. Please ensure both fields are identical.",
 		})
 	}
-	resp, err := h.UserService.SetPassword(req)
+	resp, err := h.UserService.SetPassword(ctx.Context(), req)
 	if err != nil {
 		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(serviceErr)
@@ -322,12 +291,24 @@ func (h *Handler) SetUserPassword(ctx *fiber.Ctx) error {
 	})
 }
 
+// DeleteUser handles the deletion of a user by their ID
+// @Summary Delete a user
+// @Description Delete a user from the system using their unique identifier
+// @Tags User
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID" format(uuid)
+// @Success 200 {object} responsemodels.ServiceResponse "User successfully deleted"
+// @Failure 400 {object} responsemodels.BadRequestResponse "Bad request, missing required fields"
+// @Failure 404 {object} responsemodels.ServiceResponse "User not found"
+// @Failure 500 {object} responsemodels.InternalServerErrorResponse "Internal server error"
+// @Router /user/{id} [delete]
 func (h *Handler) DeleteUser(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 	if id == "" {
 		return BadRequest(ctx, "Invalid request: 'id' in path parameter is required and cannot be empty.")
 	}
-	resp, err := h.UserService.DeleteUser(uuid.MustParse(id))
+	resp, err := h.UserService.DeleteUser(ctx.Context(), uuid.MustParse(id))
 	if err != nil {
 		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(serviceErr)
@@ -343,5 +324,114 @@ func (h *Handler) DeleteUser(ctx *fiber.Ctx) error {
 		Code:    200,
 		Message: "The user was successfully deleted",
 		Data:    resp,
+	})
+}
+
+// ListUsers retrieves a paginated list of all users in the system.
+//
+// @Summary List All Users
+// @Description Fetches a paginated list of all users in the system. This endpoint is typically used by admins to view and manage users. Returns user details with pagination support.
+// @Tags User
+// @Produce json
+// @Success 200 {object} responsemodels.ServiceResponse "Users list successfully retrieved with pagination"
+// @Failure 401 {object} responsemodels.UnauthorizedResponse "Unauthorized, invalid or missing authentication"
+// @Failure 500 {object} responsemodels.InternalServerErrorResponse "Internal server error"
+// @Router /users [get]
+// @Security ApiKeyAuth
+func (h *Handler) ListUsers(ctx *fiber.Ctx) error {
+	resp, err := h.UserService.ListUsers(ctx.Context())
+	if err != nil {
+		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(serviceErr)
+		} else {
+			log.Printf("Unexpected error while fetching users : %v", err)
+			return ctx.Status(500).JSON(responsemodels.ServiceResponse{
+				Code:    500,
+				Message: fmt.Sprintf("An unexpected error occurred while fetching users: %v", err),
+			})
+		}
+	}
+	// Make the user response paginated
+	paginatedResp := pagination.PaginateSlice(resp, 1, 5)
+	return ctx.Status(fiber.StatusOK).JSON(responsemodels.ServiceResponse{
+		Code:    200,
+		Message: "The user details are successfully fetched",
+		Data:    paginatedResp,
+	})
+}
+
+// EnableUser enables a disabled user account by their ID.
+//
+// @Summary Enable User Account
+// @Description Enables a previously disabled user account, allowing them to access the system again. Only users with sufficient privileges can perform this action.
+// @Tags User
+// @Produce json
+// @Param id path string true "Unique identifier of the user to enable" format(uuid)
+// @Success 200 {object} responsemodels.ServiceResponse "User account enabled successfully"
+// @Failure 400 {object} responsemodels.BadRequestResponse "Bad request, missing required fields"
+// @Failure 401 {object} responsemodels.UnauthorizedResponse "Unauthorized, invalid or missing authentication"
+// @Failure 404 {object} responsemodels.ServiceResponse "User not found"
+// @Failure 500 {object} responsemodels.InternalServerErrorResponse "Internal server error"
+// @Router /users/{id}/enable [put]
+// @Security ApiKeyAuth
+func (h *Handler) EnableUser(ctx *fiber.Ctx) error {
+	id := ctx.Params("id")
+	if id == "" {
+		return BadRequest(ctx, "Invalid request: 'id' in path parameter is required and cannot be empty.")
+	}
+	resp, err := h.UserService.EnableUser(ctx.Context(), uuid.MustParse(id))
+	if err != nil {
+		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(serviceErr)
+		} else {
+			log.Printf("Unexpected error while fetching users : %v", err)
+			return ctx.Status(500).JSON(responsemodels.ServiceResponse{
+				Code:    500,
+				Message: fmt.Sprintf("An unexpected error occurred while fetching users: %v", err),
+			})
+		}
+	}
+	return ctx.Status(fiber.StatusOK).JSON(responsemodels.ServiceResponse{
+		Code:    200,
+		Message: "The user was successfully enabled",
+		Data:    resp.Message,
+	})
+}
+
+// DisableUser disables a user account by their ID.
+//
+// @Summary Disable User Account
+// @Description Disables a user account, preventing them from accessing the system. Only users with sufficient privileges can perform this action.
+// @Tags User
+// @Produce json
+// @Param id path string true "Unique identifier of the user to disable" format(uuid)
+// @Success 200 {object} responsemodels.ServiceResponse "User account disabled successfully"
+// @Failure 400 {object} responsemodels.BadRequestResponse "Bad request, missing required fields"
+// @Failure 401 {object} responsemodels.UnauthorizedResponse "Unauthorized, invalid or missing authentication"
+// @Failure 404 {object} responsemodels.ServiceResponse "User not found"
+// @Failure 500 {object} responsemodels.InternalServerErrorResponse "Internal server error"
+// @Router /users/{id}/disable [put]
+// @Security ApiKeyAuth
+func (h *Handler) DisableUser(ctx *fiber.Ctx) error {
+	id := ctx.Params("id")
+	if id == "" {
+		return BadRequest(ctx, "Invalid request: 'id' in path parameter is required and cannot be empty.")
+	}
+	resp, err := h.UserService.DisbaleUser(ctx.Context(), uuid.MustParse(id))
+	if err != nil {
+		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(serviceErr)
+		} else {
+			log.Printf("Unexpected error while fetching users : %v", err)
+			return ctx.Status(500).JSON(responsemodels.ServiceResponse{
+				Code:    500,
+				Message: fmt.Sprintf("An unexpected error occurred while fetching users: %v", err),
+			})
+		}
+	}
+	return ctx.Status(fiber.StatusOK).JSON(responsemodels.ServiceResponse{
+		Code:    200,
+		Message: "The user was successfully disabled",
+		Data:    resp.Message,
 	})
 }

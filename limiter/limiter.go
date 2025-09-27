@@ -16,10 +16,6 @@ func RateLimiter(redisClient *redis.Client) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		log.Println("the rate limiter was called")
 		ip := c.IP()
-		if ip == "161.248.229.64" {
-			log.Println("the vivek sharma ip is used")
-			return c.Next()
-		}
 		key := fmt.Sprintf("rate_limit:%s", ip)
 		limit := 5
 		expiry := time.Minute

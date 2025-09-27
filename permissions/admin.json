@@ -1,0 +1,100 @@
+{
+  "role_info": {
+    "name": "admin",
+    "display_name": "Administrator",
+    "description": "Full system access with administrative privileges",
+    "role_type": "default",
+    "priority": 100,
+    "is_system": true
+  },
+  "permissions": [
+    {
+      "route": "/auth/login",
+      "methods": ["POST"],
+      "description": "Login to system"
+    },
+    {
+      "route": "/auth/logout",
+      "methods": ["PUT"],
+      "description": "Logout from system"
+    },
+    {
+      "route": "/auth/refresh",
+      "methods": ["PUT"],
+      "description": "Refresh authentication token"
+    },
+    {
+      "route": "/users/me",
+      "methods": ["GET", "PUT"],
+      "description": "View and update own profile"
+    },
+    {
+      "route": "/users/:id",
+      "methods": ["GET", "PUT", "DELETE"],
+      "params": {
+        "id": "any"
+      },
+      "description": "Full user management"
+    },
+    {
+      "route": "/users",
+      "methods": ["GET", "POST"],
+      "description": "List and create users"
+    },
+    {
+      "route": "/users/:id/roles",
+      "methods": ["PUT"],
+      "params": {
+        "id": "any"
+      },
+      "description": "Assign roles to users"
+    },
+    {
+      "route": "/users/resetpassword",
+      "methods": ["POST"],
+      "description": "Reset user passwords"
+    },
+    {
+      "route": "/users/setpassword",
+      "methods": ["PUT"],
+      "description": "Set user passwords"
+    },
+    {
+      "route": "/roles",
+      "methods": ["GET", "POST"],
+      "description": "Role management for the complete tenant level"
+    },
+    {
+      "route": "/roles/:id",
+      "methods": ["GET", "PUT", "DELETE"],
+      "params": {
+        "id": "any"
+      },
+      "description": "Full role management"
+    },
+    {
+      "route": "/roles/:id/permissions",
+      "methods": ["GET", "PUT"],
+      "params": {
+        "id": "any"
+      },
+      "description": "Manage role permissions"
+    },
+    {
+      "route": "/roles/:id/enable",
+      "methods": ["PUT"],
+      "params": {
+        "id": "any"
+      },
+      "description": "Enable roles"
+    },
+    {
+      "route": "/roles/:id/disable",
+      "methods": ["PUT"],
+      "params": {
+        "id": "any"
+      },
+      "description": "Disable roles"
+    }
+  ]
+}

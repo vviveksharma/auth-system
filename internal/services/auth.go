@@ -1,6 +1,8 @@
 package services
 
 import (
+	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,14 +15,16 @@ import (
 )
 
 type AuthService interface {
-	LoginUser(req *models.UserLoginRequest) (res *models.UserLoginResponse, err error)
-	RefreshToken(id string, roleId string) (res *models.UserLoginResponse, err error)
+	LoginUser(req *models.UserLoginRequest, ctx context.Context) (res *models.UserLoginResponse, err error)
+	RefreshToken(id string, roleId string, ctx context.Context) (res *models.UserLoginResponse, err error)
+	LogoutUser(userId uuid.UUID, ctx context.Context) (*models.LogoutUserResponse, error)
 }
 
 type Auth struct {
 	UserRepo       repo.UserRepositoryInterface
 	LoginRepo      repo.LoginRepositoryInterface
 	RoleRepo       repo.RoleRepositoryInterface
+	TokenRepo      repo.TokenRepositoryInterface
 	ResetTokenRepo repo.ResetTokenRepositoryInterface
 	RedisClient    *redis.Client
 }
@@ -57,10 +61,17 @@ func (a *Auth) SetupRepo() error {
 		return err
 	}
 	a.ResetTokenRepo = rToken
+	Token, err := repo.NewTokenRepository(db.DB)
+	if err != nil {
+		return err
+	}
+	a.TokenRepo = Token
 	return nil
 }
 
-func (a *Auth) LoginUser(req *models.UserLoginRequest) (res *models.UserLoginResponse, err error) {
+func (a *Auth) LoginUser(req *models.UserLoginRequest, ctx context.Context) (res *models.UserLoginResponse, err error) {
+	tenant_id := ctx.Value("tenant_id").(string)
+	fmt.Println("the tenant id : ", tenant_id)
 	userDetails, err := a.UserRepo.GetUserByEmail(req.Email)
 	if err != nil {
 		if err.Error() == "record not found" {
@@ -155,6 +166,7 @@ func (a *Auth) LoginUser(req *models.UserLoginRequest) (res *models.UserLoginRes
 		IssuedAt:  time.Now(),
 		ExpiresAt: time.Now().Add(30 * time.Minute),
 		Revoked:   false,
+		TenantId:  uuid.MustParse(tenant_id),
 	})
 	if lerr != nil {
 		return nil, &dbmodels.ServiceResponse{
@@ -162,13 +174,13 @@ func (a *Auth) LoginUser(req *models.UserLoginRequest) (res *models.UserLoginRes
 			Message: "error while creating a login entry: " + lerr.Error(),
 		}
 	}
-
+	// Check if while login on the guest role is there update that with user
 	return &models.UserLoginResponse{
 		JWT: jwt,
 	}, nil
 }
 
-func (a *Auth) RefreshToken(id string, roleId string) (res *models.UserLoginResponse, err error) {
+func (a *Auth) RefreshToken(id string, roleId string, ctx context.Context) (res *models.UserLoginResponse, err error) {
 	loginDetails, err := a.LoginRepo.GetUserById(id)
 	if err != nil {
 		return nil, &dbmodels.ServiceResponse{
@@ -192,6 +204,19 @@ func (a *Auth) RefreshToken(id string, roleId string) (res *models.UserLoginResp
 	}
 	return &models.UserLoginResponse{
 		JWT: jwt,
+	}, nil
+}
+
+func (a *Auth) LogoutUser(userId uuid.UUID, ctx context.Context) (*models.LogoutUserResponse, error) {
+	err := a.LoginRepo.Logout(userId)
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: fmt.Sprintf("failed to log out user with id %s: %v", userId.String(), err),
+		}
+	}
+	return &models.LogoutUserResponse{
+		Message: fmt.Sprintf("User with ID %s has been logged out successfully.", userId.String()),
 	}, nil
 }
 

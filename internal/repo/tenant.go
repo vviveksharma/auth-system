@@ -9,7 +9,9 @@ import (
 type TenantRepositoryInterface interface {
 	CreateTenant(tenant *models.DBTenant) error
 	GetUserByEmail(email string) (tenantDetails *models.DBTenant, err error)
-	UpdateTenatDetailsPassword(tenantId string ,password string) error
+	UpdateTenatDetailsPassword(tenantId string, password string) error
+	GetTenantDetails(conditions *models.DBTenant) (*models.DBTenant, error)
+	DeleteTenant(tenantId uuid.UUID) error
 }
 
 type TenantRepository struct {
@@ -70,7 +72,7 @@ func (t *TenantRepository) VerifyTenant(tenantId string) (bool, error) {
 	}
 }
 
-func (t *TenantRepository) UpdateTenatDetailsPassword(tenantId string ,password string) error {
+func (t *TenantRepository) UpdateTenatDetailsPassword(tenantId string, password string) error {
 	transaction := t.DB.Begin()
 	if transaction.Error != nil {
 		return transaction.Error
@@ -83,5 +85,34 @@ func (t *TenantRepository) UpdateTenatDetailsPassword(tenantId string ,password 
 		return updateErr.Error
 	}
 	transaction.Commit()
+	return nil
+}
+
+func (t *TenantRepository) GetTenantDetails(conditions *models.DBTenant) (*models.DBTenant, error) {
+	transaction := t.DB.Begin()
+	if transaction.Error != nil {
+		return nil, transaction.Error
+	}
+	defer transaction.Rollback()
+	var tenantDetails models.DBTenant
+	findErr := transaction.Model(&models.DBTenant{}).First(&tenantDetails, &conditions)
+	if findErr.Error != nil {
+		return nil, findErr.Error
+	}
+	return &tenantDetails, nil
+}
+
+func (t *TenantRepository) DeleteTenant(tenantId uuid.UUID) error {
+	transaction := t.DB.Begin()
+	if transaction.Error != nil {
+		return transaction.Error
+	}
+	defer transaction.Rollback()
+	delete := transaction.Where("id = ? ", tenantId).Delete(models.DBTenant{
+		Id: tenantId,
+	})
+	if delete.Error != nil {
+		return delete.Error
+	}
 	return nil
 }

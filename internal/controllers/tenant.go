@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/vviveksharma/auth/internal/models"
+	"github.com/vviveksharma/auth/internal/pagination"
 	dbmodels "github.com/vviveksharma/auth/models"
 )
 
@@ -82,10 +83,12 @@ func (h *Handler) ListTokens(ctx *fiber.Ctx) error {
 			return ctx.JSON(500, fmt.Sprintf("An unexpected error occurred while deleting user: %v", err)+err.Error())
 		}
 	}
+	// Make the tokens response paginated
+	paginatedResponse := pagination.PaginateSlice(resp, 1, 5)
 	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
 		Code:    200,
 		Message: "Tokens retrieved successfully.",
-		Data:    resp,
+		Data:    paginatedResponse,
 	})
 }
 
@@ -207,8 +210,8 @@ func (h *Handler) SetPassword(ctx *fiber.Ctx) error {
 	})
 }
 
-func (h *Handler) ListUsers(ctx *fiber.Ctx) error {
-	resp, err := h.TenantService.ListUsers(ctx.Context())
+func (h *Handler) GetTenantDetails(ctx *fiber.Ctx) error {
+	resp, err := h.TenantService.GetTenantDetails(ctx.Context())
 	if err != nil {
 		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
@@ -216,9 +219,41 @@ func (h *Handler) ListUsers(ctx *fiber.Ctx) error {
 			return ctx.JSON(500, fmt.Sprintf("An unexpected error occurred while deleting user: %v", err)+err.Error())
 		}
 	}
-	return ctx.Status(fiber.StatusOK).JSON(&dbmodels.ServiceResponse{
+	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
 		Code:    200,
-		Message: "The User details are as follow",
+		Message: "The Tenant details are as follows",
+		Data:    resp,
+	})
+}
+
+func (h *Handler) DeleteTenat(ctx *fiber.Ctx) error {
+	resp, err := h.TenantService.DeleteTenant(ctx.Context())
+	if err != nil {
+		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(err)
+		} else {
+			return ctx.JSON(500, fmt.Sprintf("An unexpected error occurred while deleting user: %v", err)+err.Error())
+		}
+	}
+	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
+		Code:    200,
+		Message: resp.Message,
+		Data:    nil,
+	})
+}
+
+func (h *Handler) GetDashboardDetails(ctx *fiber.Ctx) error {
+	resp, err := h.TenantService.GetDashboardDetails(ctx.Context())
+	if err != nil {
+		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(err)
+		} else {
+			return ctx.JSON(500, fmt.Sprintf("An unexpected error occurred while getting the tenant: %v", err)+err.Error())
+		}
+	}
+	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
+		Code:    200,
+		Message: "The Tenant details",
 		Data:    resp,
 	})
 }

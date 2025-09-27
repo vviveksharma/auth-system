@@ -15,6 +15,7 @@ type RouteRoleRepositoryInterface interface {
 	FindByRoleId(roleId uuid.UUID) (bool, error)
 	UpdateRouteRole(roleId string, route string) error
 	DeleteAndUpdateRole(roleId string, addroutes []string, removeroutes []string) error
+	GetRoleRouteMapping(roleId string) (*models.DBRouteRole, error)
 }
 
 type RouteRoleRepository struct {
@@ -113,7 +114,6 @@ func (rr *RouteRoleRepository) DeleteAndUpdateRole(roleId string, addroutes []st
 	// Add new routes
 	filtered = append(filtered, addroutes...)
 	log.Println("the routes after remove: ", filtered)
-	
 
 	// Remove duplicates if any
 	filtered = uniqueStrings(filtered)
@@ -126,6 +126,20 @@ func (rr *RouteRoleRepository) DeleteAndUpdateRole(roleId string, addroutes []st
 	}
 	transaction.Commit()
 	return nil
+}
+
+func (rr *RouteRoleRepository) GetRoleRouteMapping(roleId string) (*models.DBRouteRole, error) {
+	transaction := rr.DB.Begin()
+	if transaction.Error != nil {
+		return nil, transaction.Error
+	}
+	defer transaction.Rollback()
+	var roleRouteDetails *models.DBRouteRole
+	roleRoute := transaction.Model(models.DBRouteRole{}).Where("role_id = ? ", uuid.MustParse(roleId)).First(&roleRouteDetails)
+	if roleRoute.Error != nil {
+		return nil, roleRoute.Error
+	}
+	return roleRouteDetails, nil
 }
 
 func uniqueStrings(input []string) []string {

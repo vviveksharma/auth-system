@@ -21,7 +21,8 @@ WORKDIR /app
 COPY --from=builder /app/app .
 COPY --from=builder /app/.env ./.env
 COPY --from=builder /app/docs /app/docs
-
+COPY --from=builder /app/permissions /app/permissions
+ 
 EXPOSE 8080
 
 VOLUME /app/data

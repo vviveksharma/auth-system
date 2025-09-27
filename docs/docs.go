@@ -69,14 +69,14 @@ const docTemplate = `{
         },
         "/refresh-token": {
             "post": {
-                "description": "Refreshes and returns a new JWT token for the authenticated user.",
+                "description": "Logs out the logged in user and invalidates its existing token.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Auth"
                 ],
-                "summary": "Refresh JWT Token",
+                "summary": "Logout the user",
                 "responses": {
                     "200": {
                         "description": "Refreshed JWT token and success message",
@@ -130,7 +130,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/roles/custom": {
+        "/roles/": {
             "post": {
                 "description": "Creates a new custom role with specified routes. Requires a unique role name and a list of routes. Returns 422 if the request is invalid, 500 for internal errors.",
                 "consumes": [
@@ -182,7 +182,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/roles/permissions": {
+        "/roles/:id/permissions": {
             "put": {
                 "description": "Adds or removes permissions from a role. Requires role name and lists of permissions to add or remove. Returns 422 if the request is invalid, 500 for internal errors.",
                 "consumes": [
@@ -260,7 +260,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Role exists. Data contains verification result.",
+                        "description": "Role verified successfully.",
                         "schema": {
                             "$ref": "#/definitions/models.ServiceResponse"
                         }
@@ -279,6 +279,205 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal server error. This occurs if there is an unexpected error while verifying the role.",
+                        "schema": {
+                            "$ref": "#/definitions/models.InternalServerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/roles/{id}": {
+            "delete": {
+                "description": "Deletes a custom role by its ID. Only custom roles can be deleted; system roles are protected. Any users currently assigned this role will need to be reassigned before deletion.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Roles"
+                ],
+                "summary": "Delete custom role",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Role ID to delete. Must be a valid UUID format.",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Role deleted successfully.",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request. This occurs if the 'id' path parameter is missing, empty, or not a valid UUID format.",
+                        "schema": {
+                            "$ref": "#/definitions/models.BadRequestResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict. This occurs if the role is currently assigned to users and cannot be deleted.",
+                        "schema": {
+                            "$ref": "#/definitions/models.ConflictResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error. This occurs if there is an unexpected error while deleting the role.",
+                        "schema": {
+                            "$ref": "#/definitions/models.InternalServerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/roles/{id}/disable": {
+            "put": {
+                "description": "Disables a role by its ID, preventing it from being assigned to new users. Existing users with this role will retain it but new assignments are blocked. System roles cannot be disabled.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Roles"
+                ],
+                "summary": "Disable role",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Role ID to disable. Must be a valid UUID format.",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Role disabled successfully.",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request. This occurs if the 'id' path parameter is missing, empty, or not a valid UUID format.",
+                        "schema": {
+                            "$ref": "#/definitions/models.BadRequestResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict. This occurs if the role is already disabled.",
+                        "schema": {
+                            "$ref": "#/definitions/models.ConflictResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error. This occurs if there is an unexpected error while disabling the role.",
+                        "schema": {
+                            "$ref": "#/definitions/models.InternalServerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/roles/{id}/enable": {
+            "put": {
+                "description": "Enables a role by its ID, making it available for assignment to users. Only disabled roles can be enabled. System roles are always enabled by default.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Roles"
+                ],
+                "summary": "Enable role",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Role ID to enable. Must be a valid UUID format.",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Role enabled successfully.",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request. This occurs if the 'id' path parameter is missing, empty, or not a valid UUID format.",
+                        "schema": {
+                            "$ref": "#/definitions/models.BadRequestResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict. This occurs if the role is already enabled.",
+                        "schema": {
+                            "$ref": "#/definitions/models.ConflictResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error. This occurs if there is an unexpected error while enabling the role.",
+                        "schema": {
+                            "$ref": "#/definitions/models.InternalServerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/roles/{id}/permissions": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retrieves all routes and permissions associated with a specific role by role ID. This is useful for role management and permission auditing. Returns detailed permission structure including HTTP methods and route information.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Roles"
+                ],
+                "summary": "Get role permissions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Role ID to retrieve permissions for. Must be a valid UUID format.",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Role permissions retrieved successfully. Data contains the detailed permission structure.",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request. This occurs if the 'id' path parameter is missing, empty, or not a valid UUID format.",
+                        "schema": {
+                            "$ref": "#/definitions/models.BadRequestResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error. This occurs if there is an unexpected error while retrieving role permissions.",
                         "schema": {
                             "$ref": "#/definitions/models.InternalServerErrorResponse"
                         }
@@ -602,6 +801,55 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "delete": {
+                "description": "Delete a user from the system using their unique identifier",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User"
+                ],
+                "summary": "Delete a user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User successfully deleted",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request, missing required fields",
+                        "schema": {
+                            "$ref": "#/definitions/models.BadRequestResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/models.InternalServerErrorResponse"
+                        }
+                    }
+                }
             }
         },
         "/user/{id}/role": {
@@ -679,6 +927,161 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/users": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Fetches a paginated list of all users in the system. This endpoint is typically used by admins to view and manage users. Returns user details with pagination support.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User"
+                ],
+                "summary": "List All Users",
+                "responses": {
+                    "200": {
+                        "description": "Users list successfully retrieved with pagination",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized, invalid or missing authentication",
+                        "schema": {
+                            "$ref": "#/definitions/models.UnauthorizedResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/models.InternalServerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/{id}/disable": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Disables a user account, preventing them from accessing the system. Only users with sufficient privileges can perform this action.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User"
+                ],
+                "summary": "Disable User Account",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Unique identifier of the user to disable",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User account disabled successfully",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request, missing required fields",
+                        "schema": {
+                            "$ref": "#/definitions/models.BadRequestResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized, invalid or missing authentication",
+                        "schema": {
+                            "$ref": "#/definitions/models.UnauthorizedResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/models.InternalServerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/{id}/enable": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Enables a previously disabled user account, allowing them to access the system again. Only users with sufficient privileges can perform this action.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User"
+                ],
+                "summary": "Enable User Account",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Unique identifier of the user to enable",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User account enabled successfully",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request, missing required fields",
+                        "schema": {
+                            "$ref": "#/definitions/models.BadRequestResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized, invalid or missing authentication",
+                        "schema": {
+                            "$ref": "#/definitions/models.UnauthorizedResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/models.InternalServerErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -719,14 +1122,20 @@ const docTemplate = `{
         "models.CreateCustomRole": {
             "type": "object",
             "properties": {
-                "role": {
-                    "type": "string"
-                },
-                "routes": {
+                "Permissions": {
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/models.Permission"
                     }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
                 }
             }
         },
@@ -740,6 +1149,23 @@ const docTemplate = `{
                 "message": {
                     "type": "string",
                     "example": "Internal server error occurred."
+                }
+            }
+        },
+        "models.Permission": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "methods": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "route": {
+                    "type": "string"
                 }
             }
         },
@@ -797,13 +1223,13 @@ const docTemplate = `{
                 "add_permissions": {
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/models.Permission"
                     }
                 },
                 "remove_permissions": {
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/models.Permission"
                     }
                 },
                 "role": {

@@ -1,0 +1,22 @@
+{
+  "role_info": {
+    "name": "guest",
+    "display_name": "Guest",
+    "description": "Guest Role when non-register user enters",
+    "role_type": "default",
+    "priority": 0,
+    "is_system": true
+  },
+  "permissions": [
+    {
+      "route": "/auth/login",
+      "methods": ["POST"],
+      "description": "Login to system"
+    },
+    {
+      "route": "/auth/register",
+      "methods": ["POST"],
+      "description": "Register the user"
+    }
+  ]
+}

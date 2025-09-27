@@ -1,0 +1,84 @@
+{
+  "role_info": {
+    "name": "moderator",
+    "display_name": "Moderator",
+    "description": "Moderator with limited administrative privileges",
+    "role_type": "default",
+    "priority": 50,
+    "is_system": true
+  },
+  "permissions": [
+    {
+      "route": "/auth/login",
+      "methods": ["POST"],
+      "description": "Login to system"
+    },
+    {
+      "route": "/auth/logout",
+      "methods": ["PUT"],
+      "description": "Logout from system"
+    },
+    {
+      "route": "/auth/refresh",
+      "methods": ["PUT"],
+      "description": "Refresh authentication token"
+    },
+    {
+      "route": "/users/me",
+      "methods": ["GET", "PUT"],
+      "description": "View and update own profile"
+    },
+    {
+      "route": "/users/:id",
+      "methods": ["GET"],
+      "params": {
+        "id": "any"
+      },
+      "description": "View user profiles"
+    },
+    {
+      "route": "/users",
+      "methods": ["GET"],
+      "description": "List users"
+    },
+    {
+      "route": "/users/resetpassword",
+      "methods": ["POST"],
+      "description": "Reset user passwords"
+    },
+    {
+      "route": "/users/setpassword",
+      "methods": ["PUT"],
+      "description": "Set user passwords"
+    },
+    {
+      "route": "/roles",
+      "methods": ["GET"],
+      "description": "View roles"
+    },
+    {
+      "route": "/roles/:id",
+      "methods": ["GET"],
+      "params": {
+        "id": "any"
+      },
+      "description": "View role details"
+    },
+    {
+      "route": "/roles/:id/enable",
+      "methods": ["PUT"],
+      "params": {
+        "id": "custom"
+      },
+      "description": "Enable custom roles only"
+    },
+    {
+      "route": "/roles/:id/disable",
+      "methods": ["PUT"],
+      "params": {
+        "id": "custom"
+      },
+      "description": "Disable custom roles only"
+    }
+  ]
+}

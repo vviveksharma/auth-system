@@ -7,6 +7,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/vviveksharma/auth/db"
+	model "github.com/vviveksharma/auth/internal/models"
 	"github.com/vviveksharma/auth/internal/repo"
 	"github.com/vviveksharma/auth/models"
 )
@@ -77,7 +78,10 @@ func TenantMiddleWare() fiber.Handler {
 		log.Println(" the token string :", tokenStr)
 		resp, tenant_id, err := Newtoken.VerifyToken(tokenStr)
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(err)
+			return c.Status(fiber.StatusInternalServerError).JSON(models.ServiceResponse{
+				Code:    500,
+				Message: fmt.Sprintf("error while verifying token: %v", err),
+			})
 		}
 		if resp {
 			c.Locals("token", tokenStr)
@@ -112,4 +116,33 @@ func GetTenantFromToken() fiber.Handler {
 		}
 		return nil
 	}
+}
+
+func VerifyRoleRouteMapping(roleId string, route string, method string) (bool, error) {
+	roleRoute, err := repo.NewRouteRoleRepository(db.DB)
+	if err != nil {
+		return false, fmt.Errorf("error while initializing the roleroute repository: %w", err)
+	}
+
+	routes, err := roleRoute.GetRoleRouteMapping(roleId)
+	if err != nil {
+		return false, fmt.Errorf("error while getting the role route mapping: %w", err)
+	}
+
+	roleData, err := model.ConvertDBData(routes.Permissions)
+	if err != nil {
+		return false, fmt.Errorf("%s", "error while fetchig the role permissions: "+err.Error())
+	}
+
+	permi := model.ClassifyPermissionsByMethod(roleData.Permissions)
+
+	per, flag := model.FindMethodWithPatterns(method, route, permi)
+
+	if per == nil {
+		return false, nil
+	}
+
+	fmt.Println("the flag: ", flag)
+
+	return flag, nil
 }

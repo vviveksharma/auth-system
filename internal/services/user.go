@@ -14,15 +14,18 @@ import (
 )
 
 type UserService interface {
-	CreateUser(req *models.UserRequest) (*models.UserResponse, error)
-	GetUserDetails(req *models.GetUserDetailsRequest) (*models.UserDetailsResponse, error)
-	UpdateUserDetails(req *models.UpdateUserRequest, userId string) (*models.UpdateUserResponse, error)
-	GetUserById(userId string) (*models.GetUserByIdResponse, error)
-	AssignUserRole(req *models.AssignRoleRequest, userId string) (*models.AssignRoleResponse, error)
-	RegisterUser(req *models.UserRequest, ctx context.Context) (*models.UserResponse, error)
-	ResetPassword(req *models.ResetPasswordRequest) (*models.ResetPasswordResponse, error)
-	SetPassword(req *models.UserVerifyOTPRequest) (*models.UserVerifyOTPRequest, error)
-	DeleteUser(userId uuid.UUID) (*models.DeleteUserResponse, error)
+	GetUserDetails(ctx context.Context, req *models.GetUserDetailsRequest) (*models.UserDetailsResponse, error)
+	UpdateUserDetails(ctx context.Context, req *models.UpdateUserRequest, userId string) (*models.UpdateUserResponse, error)
+	GetUserById(ctx context.Context, userId string) (*models.GetUserByIdResponse, error)
+	AssignUserRole(ctx context.Context, req *models.AssignRoleRequest, userId string) (*models.AssignRoleResponse, error)
+	RegisterUser(ctx context.Context, req *models.UserRequest) (*models.UserResponse, error)
+	ResetPassword(ctx context.Context, req *models.ResetPasswordRequest) (*models.ResetPasswordResponse, error)
+	SetPassword(ctx context.Context, req *models.UserVerifyOTPRequest) (*models.UserVerifyOTPRequest, error)
+	DeleteUser(ctx context.Context, userId uuid.UUID) (*models.DeleteUserResponse, error)
+	ListUsers(ctx context.Context) (resp []*models.ListUsersResponse, err error)
+	EnableUser(ctx context.Context, userId uuid.UUID) (*models.EnableUserResponse, error)
+	DisbaleUser(ctx context.Context, userId uuid.UUID) (*models.DisableUserResponse, error)
+	GetUserRole(ctx context.Context, userId uuid.UUID) (*models.GetRoleDetailsUser, error)
 }
 
 type User struct {
@@ -56,50 +59,7 @@ func (u *User) SetupRepo() error {
 	return nil
 }
 
-func (u *User) CreateUser(req *models.UserRequest) (*models.UserResponse, error) {
-	userDetails, err := u.UserRepo.GetUserByEmail(req.Email)
-	if err != nil && err.Error() != "record not found" {
-		return nil, &dbmodels.ServiceResponse{
-			Code:    500,
-			Message: "error while creating the userdetails: " + err.Error(),
-		}
-	}
-	if userDetails != nil && userDetails.Email == req.Email {
-		return nil, &dbmodels.ServiceResponse{
-			Code:    404,
-			Message: "user with name exist please login",
-		}
-	}
-	// Storing the hash password
-	pass, salt, err := utils.GeneratePasswordHash(req.Password, utils.DefaultParams)
-	if err != nil {
-		return nil, &dbmodels.ServiceResponse{
-			Code:    423,
-			Message: "error while generating and storing the password: " + err.Error(),
-		}
-	}
-	id := uuid.MustParse("dae760ab-0a7f-4cbd-8603-def85ad8e430")
-	err = u.UserRepo.CreateUser(&dbmodels.DBUser{
-		TenantId:  id,
-		Name:      req.Name,
-		CreatedAt: time.Now(),
-		Email:     req.Email,
-		Password:  pass,
-		Salt:      salt,
-		Roles:     []string{"admin"},
-	})
-	if err != nil {
-		return nil, &dbmodels.ServiceResponse{
-			Code:    500,
-			Message: "error while creating the userdetails: " + err.Error(),
-		}
-	}
-	return &models.UserResponse{
-		Message: "user created succesfuly with email " + req.Email,
-	}, nil
-}
-
-func (u *User) RegisterUser(req *models.UserRequest, ctx context.Context) (*models.UserResponse, error) {
+func (u *User) RegisterUser(ctx context.Context, req *models.UserRequest) (*models.UserResponse, error) {
 	tenantId := ctx.Value("tenant_id").(string)
 	userDetails, err := u.UserRepo.GetUserByEmail(req.Email)
 	if err != nil {
@@ -143,8 +103,12 @@ func (u *User) RegisterUser(req *models.UserRequest, ctx context.Context) (*mode
 	}, nil
 }
 
-func (u *User) GetUserDetails(req *models.GetUserDetailsRequest) (*models.UserDetailsResponse, error) {
-	userDetails, err := u.UserRepo.GetUserDetails(uuid.MustParse(req.Id))
+func (u *User) GetUserDetails(ctx context.Context, req *models.GetUserDetailsRequest) (*models.UserDetailsResponse, error) {
+	tenantId := ctx.Value("tenant_id").(uuid.UUID)
+	userDetails, err := u.UserRepo.GetUserDetails(dbmodels.DBUser{
+		Id: uuid.MustParse(req.Id),
+		TenantId: tenantId,
+	})
 	if err != nil {
 		if err.Error() == "record not found" {
 			return nil, &dbmodels.ServiceResponse{
@@ -165,8 +129,12 @@ func (u *User) GetUserDetails(req *models.GetUserDetailsRequest) (*models.UserDe
 	}, nil
 }
 
-func (u *User) UpdateUserDetails(req *models.UpdateUserRequest, userId string) (*models.UpdateUserResponse, error) {
-	userDetails, err := u.UserRepo.GetUserDetails(uuid.MustParse(userId))
+func (u *User) UpdateUserDetails(ctx context.Context, req *models.UpdateUserRequest, userId string) (*models.UpdateUserResponse, error) {
+	tenantId := ctx.Value("tenant_id").(uuid.UUID)
+	userDetails, err := u.UserRepo.GetUserDetails(dbmodels.DBUser{
+		Id: uuid.MustParse(userId),
+		TenantId: tenantId,
+	})
 	if err != nil {
 		if err.Error() == "record not found" {
 			return nil, &dbmodels.ServiceResponse{
@@ -194,8 +162,12 @@ func (u *User) UpdateUserDetails(req *models.UpdateUserRequest, userId string) (
 	}, nil
 }
 
-func (u *User) GetUserById(userId string) (*models.GetUserByIdResponse, error) {
-	userDetails, err := u.UserRepo.GetUserDetails(uuid.MustParse(userId))
+func (u *User) GetUserById(ctx context.Context, userId string) (*models.GetUserByIdResponse, error) {
+	tenantId := ctx.Value("tenant_id").(uuid.UUID)
+	userDetails, err := u.UserRepo.GetUserDetails(dbmodels.DBUser{
+		Id: uuid.MustParse(userId),
+		TenantId: tenantId,
+	})
 	if err != nil {
 		if err.Error() == "record not found" {
 			return nil, &dbmodels.ServiceResponse{
@@ -216,8 +188,12 @@ func (u *User) GetUserById(userId string) (*models.GetUserByIdResponse, error) {
 	}, nil
 }
 
-func (u *User) AssignUserRole(req *models.AssignRoleRequest, userId string) (*models.AssignRoleResponse, error) {
-	userDetails, err := u.UserRepo.GetUserDetails(uuid.MustParse(userId))
+func (u *User) AssignUserRole(ctx context.Context, req *models.AssignRoleRequest, userId string) (*models.AssignRoleResponse, error) {
+	tenantId := ctx.Value("tenant_id").(uuid.UUID)
+	userDetails, err := u.UserRepo.GetUserDetails(dbmodels.DBUser{
+		Id: uuid.MustParse(userId),
+		TenantId: tenantId,
+	})
 	if err != nil {
 		if err.Error() == "record not found" {
 			return nil, &dbmodels.ServiceResponse{
@@ -243,7 +219,7 @@ func (u *User) AssignUserRole(req *models.AssignRoleRequest, userId string) (*mo
 	}, nil
 }
 
-func (u *User) ResetPassword(req *models.ResetPasswordRequest) (*models.ResetPasswordResponse, error) {
+func (u *User) ResetPassword(ctx context.Context, req *models.ResetPasswordRequest) (*models.ResetPasswordResponse, error) {
 	userDetails, err := u.UserRepo.GetUserByEmail(req.Email)
 	if err != nil {
 		if err.Error() == "record not found" {
@@ -276,7 +252,7 @@ func (u *User) ResetPassword(req *models.ResetPasswordRequest) (*models.ResetPas
 	}, nil
 }
 
-func (u *User) SetPassword(req *models.UserVerifyOTPRequest) (*models.UserVerifyOTPRequest, error) {
+func (u *User) SetPassword(ctx context.Context, req *models.UserVerifyOTPRequest) (*models.UserVerifyOTPRequest, error) {
 	istoken, err := u.ResetTokenRepo.VerifyOTP(req.OTP)
 	if err != nil {
 		return nil, &dbmodels.ServiceResponse{
@@ -322,8 +298,12 @@ func (u *User) SetPassword(req *models.UserVerifyOTPRequest) (*models.UserVerify
 	return nil, nil
 }
 
-func (u *User) DeleteUser(userId uuid.UUID) (*models.DeleteUserResponse, error) { 
-	userDetails, err := u.UserRepo.GetUserDetails(userId)
+func (u *User) DeleteUser(ctx context.Context, userId uuid.UUID) (*models.DeleteUserResponse, error) {
+	tenantId := ctx.Value("tenant_id").(uuid.UUID)
+	userDetails, err := u.UserRepo.GetUserDetails(dbmodels.DBUser{
+		Id: userId,
+		TenantId: tenantId,
+	})
 	if err != nil {
 		if err.Error() == "record not found" {
 			return nil, &dbmodels.ServiceResponse{
@@ -346,5 +326,136 @@ func (u *User) DeleteUser(userId uuid.UUID) (*models.DeleteUserResponse, error) 
 	}
 	return &models.DeleteUserResponse{
 		Message: fmt.Sprintf("User with ID %s has been deleted successfully.", userId.String()),
+	}, nil
+}
+
+func (u *User) ListUsers(ctx context.Context) (resp []*models.ListUsersResponse, err error) {
+	tenant_id := ctx.Value("tenant_id").(string)
+	userDetails, err := u.UserRepo.ListUsers(uuid.MustParse(tenant_id))
+	if err != nil {
+		if err.Error() == "record not found" {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    404,
+				Message: fmt.Sprintf("No user found with the provided tenanatID: %s.", tenant_id),
+			}
+		} else {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    500,
+				Message: fmt.Sprintf("An error occurred while retrieving user details for given tenant ID %s: %s.", tenant_id, err.Error()),
+			}
+		}
+	}
+	for _, user := range userDetails {
+		userdetails := &models.ListUsersResponse{
+			Id:        user.Id,
+			Email:     user.Email,
+			Name:      user.Name,
+			CreatedAt: user.CreatedAt.Format(time.RFC3339),
+			Roles:     user.Roles,
+		}
+		resp = append(resp, userdetails)
+	}
+	return resp, nil
+}
+
+func (u *User) EnableUser(ctx context.Context, userId uuid.UUID) (*models.EnableUserResponse, error) {
+	tenantId := ctx.Value("tenant_id").(string)
+	userDetails, err := u.UserRepo.GetUserDetails(dbmodels.DBUser{
+		Id:       userId,
+		TenantId: uuid.MustParse(tenantId),
+	})
+	if err != nil {
+		if err.Error() == "record not found" {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    404,
+				Message: fmt.Sprintf("User not found for tenant %s and user ID %s", tenantId, userId.String()),
+			}
+		} else {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    500,
+				Message: fmt.Sprintf("Failed to retrieve user details for tenant %s and user ID %s: %s", tenantId, userId.String(), err.Error()),
+			}
+		}
+	}
+	if userDetails.Status {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    400,
+			Message: fmt.Sprintf("User %s is already enabled for tenant %s", userId.String(), tenantId),
+		}
+	}
+	// Enable the disabled user
+	err = u.UserRepo.ChangeStatus(true, userDetails.Id)
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: fmt.Sprintf("Failed to enable user %s for tenant %s: %s", userId.String(), tenantId, err.Error()),
+		}
+	}
+	return &models.EnableUserResponse{
+		Message: fmt.Sprintf("User %s successfully enabled for tenant %s", userId.String(), tenantId),
+	}, nil
+}
+
+func (u *User) DisbaleUser(ctx context.Context, userId uuid.UUID) (*models.DisableUserResponse, error) {
+	tenantId := ctx.Value("tenant_id").(string)
+	userDetails, err := u.UserRepo.GetUserDetails(dbmodels.DBUser{
+		Id:       userId,
+		TenantId: uuid.MustParse(tenantId),
+	})
+	if err != nil {
+		if err.Error() == "record not found" {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    404,
+				Message: fmt.Sprintf("User not found for tenant %s and user ID %s", tenantId, userId.String()),
+			}
+		} else {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    500,
+				Message: fmt.Sprintf("Failed to retrieve user details for tenant %s and user ID %s: %s", tenantId, userId.String(), err.Error()),
+			}
+		}
+	}
+	if !userDetails.Status {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    400,
+			Message: fmt.Sprintf("User %s is already disabled for tenant %s", userId.String(), tenantId),
+		}
+	}
+	// Disable the user
+	err = u.UserRepo.ChangeStatus(false, userDetails.Id)
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: fmt.Sprintf("Failed to disable user %s for tenant %s: %s", userId.String(), tenantId, err.Error()),
+		}
+	}
+	return &models.DisableUserResponse{
+		Message: fmt.Sprintf("User %s successfully disabled for tenant %s", userId.String(), tenantId),
+	}, nil
+}
+
+func (u *User) GetUserRole(ctx context.Context, userId uuid.UUID) (*models.GetRoleDetailsUser, error) {
+	tenantId := ctx.Value("tenant_id").(uuid.UUID)
+	userDetails, err := u.UserRepo.GetUserDetails(dbmodels.DBUser{
+		TenantId: tenantId,
+		Id:       userId,
+	})
+	if err != nil {
+		if err.Error() == "record not found" {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    404,
+				Message: fmt.Sprintf("User not found for tenant %s and user ID %s", tenantId, userId.String()),
+			}
+		} else {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    500,
+				Message: fmt.Sprintf("Failed to retrieve user details for tenant %s and user ID %s: %s", tenantId, userId.String(), err.Error()),
+			}
+		}
+	}
+	return &models.GetRoleDetailsUser{
+		UserId: userDetails.Id.String(),
+		Email:  userDetails.Email,
+		Roles:  userDetails.Roles,
 	}, nil
 }

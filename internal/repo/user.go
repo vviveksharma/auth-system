@@ -12,13 +12,14 @@ import (
 
 type UserRepositoryInterface interface {
 	CreateUser(user *models.DBUser) error
-	GetUserDetails(id uuid.UUID) (userDetails *models.DBUser, err error)
+	GetUserDetails(conditions models.DBUser) (userDetails *models.DBUser, err error)
 	GetUserByEmail(email string) (userDetails *models.DBUser, err error)
 	UpdateUserFields(userID uuid.UUID, input *dbmodels.UpdateUserRequest) error
 	UpdateUserRoles(userId uuid.UUID, role string) error
 	UpdatePassword(userId uuid.UUID, password string) error
 	ListUsers(tenantId uuid.UUID) (resp []*models.DBUser, err error)
 	DeleteUser(id uuid.UUID) error
+	ChangeStatus(flag bool, id uuid.UUID) error
 }
 
 type UserRepository struct {
@@ -45,15 +46,13 @@ func (ur *UserRepository) CreateUser(user *models.DBUser) error {
 	return nil
 }
 
-func (ur *UserRepository) GetUserDetails(id uuid.UUID) (userDetails *models.DBUser, err error) {
+func (ur *UserRepository) GetUserDetails(conditions models.DBUser) (userDetails *models.DBUser, err error) {
 	transaction := ur.DB.Begin()
 	if transaction.Error != nil {
 		return nil, transaction.Error
 	}
 	defer transaction.Rollback()
-	user := transaction.First(&userDetails, &models.DBUser{
-		Id: id,
-	})
+	user := transaction.First(&userDetails, &conditions)
 	if user.Error != nil {
 		return nil, user.Error
 	}
@@ -174,6 +173,30 @@ func (ur *UserRepository) DeleteUser(id uuid.UUID) error {
 	})
 	if usersDelete.Error != nil {
 		return usersDelete.Error
+	}
+	return nil
+}
+
+func (ur *UserRepository) ChangeStatus(flag bool, id uuid.UUID) error {
+	transaction := ur.DB.Begin()
+	if transaction.Error != nil {
+		return transaction.Error
+	}
+	defer transaction.Rollback()
+	if !flag { // disable the role
+		update := transaction.Model(&models.DBUser{}).Where("id = ?", id).Updates(map[string]interface{}{
+			"status": false,
+		})
+		if update.Error != nil {
+			return update.Error
+		}
+	} else { // enable the role
+		update := transaction.Model(&models.DBUser{}).Where("id = ?", id).Updates(map[string]interface{}{
+			"status": true,
+		})
+		if update.Error != nil {
+			return update.Error
+		}
 	}
 	return nil
 }

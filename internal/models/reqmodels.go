@@ -49,14 +49,16 @@ type LoginTenantRequest struct {
 }
 
 type CreateCustomRole struct {
-	RoleName string   `json:"role"`
-	Routes   []string `json:"routes"`
+	Name        string       `json:"name"`
+	DisplayName string       `json:"display_name"`
+	Description string       `json:"description"`
+	Permissions []Permission `json:"Permissions"`
 }
 
 type UpdateRolePermissions struct {
-	RoleName          string   `json:"role"`
-	AddPermisions     []string `json:"add_permissions"`
-	RemovePermissions []string `json:"remove_permissions"`
+	RoleName          string       `json:"role"`
+	AddPermisions     []Permission `json:"add_permissions"`
+	RemovePermissions []Permission `json:"remove_permissions"`
 }
 
 type ResetPasswordRequest struct {

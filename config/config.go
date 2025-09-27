@@ -28,7 +28,7 @@ func Init() {
 	client := cache.ConnectCache()
 
 	//Create Roles in the db
-	initsetup.InitRoles()
+	initsetup.InitSetup()
 
 	// app.Use(limiter.RateLimiter(client))
 
@@ -55,7 +55,7 @@ func Init() {
 	}
 
 	//Starting the server
-	routes.Routes(app, handler, client)
+	routes.RoutesWithNewMiddleware(app, handler, client)
 	err = app.Listen(":8080")
 	if err != nil {
 		log.Fatal("error while starting the server: ", err)

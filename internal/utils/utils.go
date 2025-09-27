@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
@@ -71,13 +72,9 @@ func GeneratePasswordHash(password string, p *Argon2Params) (encodedHash string,
 	if err != nil {
 		return "", "", err
 	}
-
 	hash := argon2.IDKey([]byte(password), salt, p.Iterations, p.Memory, p.Parallelism, p.KeyLength)
-
 	saltBase64 = base64.RawStdEncoding.EncodeToString(salt)
 	hashBase64 := base64.RawStdEncoding.EncodeToString(hash)
-
-	// You can concatenate salt and hash or store separately
 	return hashBase64, saltBase64, nil
 }
 
@@ -132,4 +129,20 @@ func GeneratePassword(password string, p *Argon2Params, salt string) (string, er
 	hash := argon2.IDKey([]byte(password), decodeSalt, p.Iterations, p.Memory, p.Parallelism, p.KeyLength)
 	hashBase64 := base64.RawStdEncoding.EncodeToString(hash)
 	return hashBase64, nil
+}
+
+func ReadPermissionFile(roleName string) (string, error) {
+	file, err := os.Open("./permissions/" + roleName + ".json")
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	var buf bytes.Buffer
+	_, err = buf.ReadFrom(file)
+	if err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
 }

@@ -1,10 +1,12 @@
 package controllers
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/google/uuid"
 	"github.com/vviveksharma/auth/internal/models"
 	responsemodels "github.com/vviveksharma/auth/models"
 )
@@ -35,7 +37,9 @@ func (h *Handler) LoginUser(ctx *fiber.Ctx) error {
 	if req.Role == "" {
 		return BadRequest(ctx, "role should be provided")
 	}
-	resp, err := h.AuthService.LoginUser(&req)
+	tenant_id := ctx.Context().Value("tenant_id").(string)
+	fmt.Println("the tenant id : ", tenant_id)
+	resp, err := h.AuthService.LoginUser(&req, ctx.Context())
 	if err != nil {
 		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
@@ -63,7 +67,7 @@ func (h *Handler) RefreshToken(ctx *fiber.Ctx) error {
 	claims := ctx.Locals("authClaims").(jwt.MapClaims)
 	userId := claims["user_id"]
 	roleId := claims["role_id"]
-	resp, err := h.AuthService.RefreshToken(userId.(string), roleId.(string))
+	resp, err := h.AuthService.RefreshToken(userId.(string), roleId.(string), ctx.Context())
 	if err != nil {
 		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
@@ -74,6 +78,32 @@ func (h *Handler) RefreshToken(ctx *fiber.Ctx) error {
 	return ctx.Status(fiber.StatusOK).JSON(responsemodels.ServiceResponse{
 		Code:    200,
 		Message: "The JWT token is refreshed",
+		Data:    resp,
+	})
+}
+
+// LogoutUser handles user logout requests
+// @Summary      Logout the user
+// @Description  Logs out the logged in user and invalidates its existing token.
+// @Tags         Auth
+// @Produce      json
+// @Success      200  {object}  responsemodels.ServiceResponse "Refreshed JWT token and success message"
+// @Failure      500  {object}  responsemodels.InternalServerErrorResponse "Unexpected server error"
+// @Router       /refresh-token [post]
+func (h *Handler) LogoutUser(ctx *fiber.Ctx) error {
+	claims := ctx.Locals("authClaims").(jwt.MapClaims)
+	userId := claims["user_id"]
+	resp, err := h.AuthService.LogoutUser(uuid.MustParse(userId.(string)), ctx.Context())
+	if err != nil {
+		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(err)
+		} else {
+			return InternalServerError(ctx, "Internal server error occurred."+"error: "+err.Error())
+		}
+	}
+	return ctx.Status(fiber.StatusOK).JSON(responsemodels.ServiceResponse{
+		Code:    200,
+		Message: "Logout successful. You have been securely signed out.",
 		Data:    resp,
 	})
 }

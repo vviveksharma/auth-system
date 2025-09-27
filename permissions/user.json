@@ -1,0 +1,50 @@
+{
+  "role_info": {
+    "name": "user",
+    "display_name": "Regular User",
+    "description": "Standard user with basic permissions",
+    "role_type": "default",
+    "priority": 10,
+    "is_system": true
+  },
+  "permissions": [
+    {
+      "route": "/auth/login",
+      "methods": ["POST"],
+      "description": "Login to system"
+    },
+    {
+      "route": "/auth/logout",
+      "methods": ["PUT"],
+      "description": "Logout from system"
+    },
+    {
+      "route": "/auth/refresh",
+      "methods": ["PUT"],
+      "description": "Refresh authentication token"
+    },
+    {
+      "route": "/users/me",
+      "methods": ["GET", "PUT"],
+      "params": {
+        "userId": "own"
+      },
+      "description": "View and update own profile only"
+    },
+    {
+      "route": "/users/resetpassword",
+      "methods": ["POST"],
+      "description": "Reset own password"
+    },
+    {
+      "route": "/users/setpassword",
+      "methods": ["PUT"],
+      "description": "Set own password"
+    },
+    {
+      "route": "/roles/verify",
+      "methods": ["GET"],
+      "description": "Verify own role permissions"
+    }
+  ]
+}
