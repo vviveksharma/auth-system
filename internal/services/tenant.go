@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/vviveksharma/auth/db"
 	"github.com/vviveksharma/auth/internal/models"
+	"github.com/vviveksharma/auth/internal/pagination"
 	"github.com/vviveksharma/auth/internal/repo"
 	"github.com/vviveksharma/auth/internal/utils"
 	dbmodels "github.com/vviveksharma/auth/models"
@@ -26,6 +27,7 @@ type TenantService interface {
 	ListUsers(ctx context.Context) (resp []*models.ListUserTenant, err error)
 	GetTenantDetails(ctx context.Context) (resp *models.GetTenantDetails, err error)
 	DeleteTenant(ctx context.Context) (resp *models.DeleteTenantResponse, err error)
+	ListTokensWithStatus(ctx context.Context, page int, pageSize int, status string) (resp *pagination.PaginatedResponse[*models.GetListTokenWithStatus], err error)
 	GetDashboardDetails(ctx context.Context) (resp *models.DashboardTenantResponse, err error)
 }
 
@@ -556,7 +558,7 @@ func (t *Tenant) GetDashboardDetails(ctx context.Context) (resp *models.Dashboar
 	}
 	var tokensize int
 	for _, token := range tokenDetails {
-		if !token.ApplicationKey {
+		if token.ApplicationKey {
 			tokensize += 1
 		}
 	}
@@ -566,3 +568,45 @@ func (t *Tenant) GetDashboardDetails(ctx context.Context) (resp *models.Dashboar
 		TokenCount: tokensize,
 	}, nil
 }
+
+func (t *Tenant) ListTokensWithStatus(ctx context.Context, page int, pageSize int, status string) (resp *pagination.PaginatedResponse[*models.GetListTokenWithStatus], err error) {
+	tenantId := ctx.Value("tenant_id").(string)
+	tokens, totalCount, err := t.TokenRepo.ListTokensPaginated(uuid.MustParse(tenantId), page, pageSize, status)
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while listing tokens: " + err.Error(),
+		}
+	}
+	var responseTokens []*models.GetListTokenWithStatus
+	for _, t := range tokens {
+		token := &models.GetListTokenWithStatus{
+			CreateAt:  t.CreatedAt,
+			ExpiresAt: t.ExpiresAt,
+			TokenId:   t.Id,
+			Status:    t.IsActive,
+			Name:      t.Name,
+		}
+		responseTokens = append(responseTokens, token)
+	}
+	totalPages := int64(0)
+	if pageSize > 0 {
+		totalPages = (totalCount + int64(pageSize) - 1) / int64(pageSize)
+	}
+
+	hasNext := int64(page) < totalPages
+	hasPrev := page > 1
+	paginatedResponse := &pagination.PaginatedResponse[*models.GetListTokenWithStatus]{
+		Data: responseTokens,
+		Pagination: pagination.PaginationMeta{
+			Page:       page,
+			PageSize:   pageSize,
+			TotalPages: int(totalPages),
+			TotalItems: int(totalCount),
+			HasNext:    hasNext,
+			HasPrev:    hasPrev,
+		},
+	}
+	return paginatedResponse, nil
+}
+

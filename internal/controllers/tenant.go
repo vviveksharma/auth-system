@@ -3,6 +3,7 @@ package controllers
 import (
 	"fmt"
 	"log"
+	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/vviveksharma/auth/internal/models"
@@ -84,7 +85,17 @@ func (h *Handler) ListTokens(ctx *fiber.Ctx) error {
 		}
 	}
 	// Make the tokens response paginated
-	paginatedResponse := pagination.PaginateSlice(resp, 1, 5)
+	page := ctx.Query("page")
+	page_size := ctx.Query("page_size")
+	pageInt := 1
+	pageSizeInt := 5
+	if page != "" {
+		pageInt, _ = strconv.Atoi(page)
+	}
+	if page_size != "" {
+		pageSizeInt, _ = strconv.Atoi(page_size)
+	}
+	paginatedResponse := pagination.PaginateSlice(resp, pageInt, pageSizeInt)
 	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
 		Code:    200,
 		Message: "Tokens retrieved successfully.",
@@ -226,7 +237,7 @@ func (h *Handler) GetTenantDetails(ctx *fiber.Ctx) error {
 	})
 }
 
-func (h *Handler) DeleteTenat(ctx *fiber.Ctx) error {
+func (h *Handler) DeleteTenant(ctx *fiber.Ctx) error {
 	resp, err := h.TenantService.DeleteTenant(ctx.Context())
 	if err != nil {
 		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
@@ -254,6 +265,39 @@ func (h *Handler) GetDashboardDetails(ctx *fiber.Ctx) error {
 	return ctx.Status(fiber.StatusOK).JSON(dbmodels.ServiceResponse{
 		Code:    200,
 		Message: "The Tenant details",
+		Data:    resp,
+	})
+}
+
+func (h *Handler) GetTokenDetailsStatus(ctx *fiber.Ctx) error {
+	flag := ctx.Query("status")
+	if flag != "active" && flag != "revoked" {
+		return ctx.Status(fiber.StatusBadRequest).JSON(dbmodels.ServiceResponse{
+			Code:    fiber.StatusBadRequest,
+			Message: "Invalid request payload. The status could be either `active` or `revoked`.",
+		})
+	}
+	page := ctx.Query("page")
+	page_size := ctx.Query("page_size")
+	pageInt := 1
+	pageSizeInt := 5
+	if page != "" {
+		pageInt, _ = strconv.Atoi(page)
+	}
+	if page_size != "" {
+		pageSizeInt, _ = strconv.Atoi(page_size)
+	}
+	resp, err := h.TenantService.ListTokensWithStatus(ctx.Context(), pageInt, pageSizeInt, flag)
+	if err != nil {
+		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(err)
+		} else {
+			return ctx.JSON(500, fmt.Sprintf("An unexpected error occurred while deleting user: %v", err)+err.Error())
+		}
+	}
+	return ctx.Status(fiber.StatusOK).JSON(&dbmodels.ServiceResponse{
+		Code:    200,
+		Message: "Roles fetched successfully",
 		Data:    resp,
 	})
 }

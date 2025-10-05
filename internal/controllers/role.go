@@ -23,9 +23,9 @@ import (
 func (h *Handler) ListAllRoles(ctx *fiber.Ctx) error {
 	flag := ctx.Query("roleTypeFlag")
 	if flag == "" {
-		flag = "user"
-	} else if flag != "user" && flag != "system" {
-		return BadRequest(ctx, "the roleTypeFlag could be only system or user")
+		flag = "custom"
+	} else if flag != "custom" && flag != "default" {
+		return BadRequest(ctx, "the roleTypeFlag could be only default or user")
 	}
 	resp, err := h.RoleService.ListRoles(flag, 1, 5, ctx.Context())
 	if err != nil {

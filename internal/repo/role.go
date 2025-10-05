@@ -19,6 +19,7 @@ type RoleRepositoryInterface interface {
 	GetRoleByName(roleName string, tenantId uuid.UUID) (*models.DBRoles, error)
 	GetRolesByTenant(tenantId uuid.UUID, roleType string) ([]*models.DBRoles, error)
 	GetRoleUsageCount(roleId uuid.UUID, tenantId string) (int64, error)
+	IsSystemRole(roleId uuid.UUID) (bool, error)
 }
 
 type RoleRepository struct {
@@ -35,24 +36,19 @@ func (r *RoleRepository) GetAllRoles(roleTypeFlag string, tenantId uuid.UUID, pa
 	var totalCount int64
 	var roleDetails []*models.DBRoles
 
-	// Build base query conditions
-	baseQuery := r.DB.Model(&models.DBRoles{}).Where("tenant_id = ?", tenantId)
-
-	// Add role type filter if provided
-	if roleTypeFlag != "" && roleTypeFlag != "all" {
-		baseQuery = baseQuery.Where("role_type = ?", roleTypeFlag)
+	if roleTypeFlag == "default" {
+		tenant := models.GetSystemTenantId()
+		tenantId = uuid.MustParse(tenant)
 	}
 
-	// Get total count for pagination metadata
+	baseQuery := r.DB.Model(&models.DBRoles{}).Where("tenant_id = ?", tenantId)
 	if err := baseQuery.Count(&totalCount).Error; err != nil {
 		fmt.Printf("Error counting roles in GetAllRoles: %v\n", err)
 		return nil, 0, err
 	}
 
-	// Calculate offset for pagination
 	offset := (page - 1) * pageSize
 
-	// Get paginated results
 	query := r.DB.Where("tenant_id = ?", tenantId)
 	if roleTypeFlag != "" && roleTypeFlag != "all" {
 		query = query.Where("role_type = ?", roleTypeFlag)
@@ -205,4 +201,21 @@ func (r *RoleRepository) GetRoleUsageCount(roleId uuid.UUID, tenantId string) (i
 		Where("tenant_id = ? AND ? = ANY(roles)", tenantId, roleId.String()).
 		Count(&count).Error
 	return count, err
+}
+
+func (r *RoleRepository) IsSystemRole(roleId uuid.UUID) (bool, error) {
+	transaction := r.DB.Begin()
+	if transaction.Error != nil {
+		return false, transaction.Error
+	}
+	defer transaction.Rollback()
+	var roleDetails models.DBRoles
+	err := transaction.Where("role_id = ? ", roleId).Find(&roleDetails)
+	if err.Error != nil {
+		return false, err.Error
+	}
+	if roleDetails.RoleType != "default" {
+		return false, nil
+	}
+	return true, nil
 }

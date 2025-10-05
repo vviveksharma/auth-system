@@ -12,6 +12,10 @@ func (e *ServiceResponse) Error() string {
 	return fmt.Sprintf("Code: %d, Message: %s, Data: %+v", e.Code, e.Message, e.Data)
 }
 
+func GetSystemTenantId() string {
+	return "dae760ab-0a7f-4cbd-8603-def85ad8e430"
+}
+
 type StatusUnprocessableEntityResponse struct {
 	Code    int    `json:"code" example:"422"`
 	Message string `json:"message" example:"Invalid request body format. Please check your JSON syntax and field types."`

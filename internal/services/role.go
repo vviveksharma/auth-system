@@ -283,6 +283,24 @@ func (r *Role) DisableRole(roleId uuid.UUID, ctx context.Context) (*models.Disab
 
 func (r *Role) GetRouteDetails(roleId uuid.UUID, ctx context.Context) (*models.GetRouteDetailsResponse, error) {
 	tenantId := ctx.Value("tenant_id").(string)
+	// check the roleDetails value and then select the tenantId
+	isSystemRole, err := r.RoleRepo.IsSystemRole(roleId)
+	if err != nil {
+		if err.Error() == "record not found" {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    404,
+				Message: "No role found with the provided role ID. Please verify the role ID and try again.",
+			}
+		} else {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    500,
+				Message: "An unexpected error occurred while retrieving role details from the database while checking the isSystemRole: " + err.Error(),
+			}
+		}
+	}
+	if isSystemRole {
+		tenantId = dbmodels.GetSystemTenantId()
+	}
 	// fetch role details
 	roleDetails, err := r.RoleRepo.GetRolesDetails(&dbmodels.DBRoles{
 		TenantId: uuid.MustParse(tenantId),
@@ -345,6 +363,7 @@ func (r *Role) isSystem(roleDetails *dbmodels.DBRoles) bool {
 
 func (r *Role) ListRoles(roleTypeFlag string, page int, pageSize int, ctx context.Context) (*pagination.PaginatedResponse[*models.ListAllRolesResponse], error) {
 	tenantId := ctx.Value("tenant_id").(string)
+	fmt.Println("the roletypeflag: ", roleTypeFlag)
 	roleDetails, totalCount, err := r.RoleRepo.GetAllRoles(roleTypeFlag, uuid.MustParse(tenantId), page, pageSize)
 	if err != nil {
 		return nil, &dbmodels.ServiceResponse{

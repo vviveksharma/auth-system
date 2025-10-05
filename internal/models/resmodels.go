@@ -182,9 +182,9 @@ type DisableRoleResponse struct {
 }
 
 type GetRouteDetailsResponse struct {
-	Routes      interface{} `json:"routes"`                // Structured data
-	RoutesJSON  string      `json:"routes_json,omitempty"` // JSON string if needed
-	RoleInfo    RoleInfo    `json:"role_info,omitempty"`   // Role metadata
+	Routes      interface{} `json:"routes"`
+	RoutesJSON  string      `json:"routes_json,omitempty"`
+	RoleInfo    RoleInfo    `json:"role_info,omitempty"`
 	ProcessedAt time.Time   `json:"processed_at"`
 }
 
@@ -224,4 +224,12 @@ type DashboardTenantResponse struct {
 	UsersCount int `json:"user_count"`
 	RoleCount  int `json:"role_count"`
 	TokenCount int `json:"token_count"`
+}
+
+type GetListTokenWithStatus struct {
+	Name      string    `json:"name"`
+	TokenId   uuid.UUID `json:"token_id"`
+	CreateAt  time.Time `json:"created_at"`
+	ExpiresAt time.Time `json:"expiry_at"`
+	Status    bool      `json:"status"`
 }

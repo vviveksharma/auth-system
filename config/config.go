@@ -11,11 +11,18 @@ import (
 	"github.com/vviveksharma/auth/initsetup"
 	"github.com/vviveksharma/auth/internal/controllers"
 	"github.com/vviveksharma/auth/internal/services"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/vviveksharma/auth/routes"
 )
 
 func Init() {
 	app := fiber.New()
+	app.Use(recover.New())
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "*",
+		AllowMethods: "GET,POST,HEAD,PUT,DELETE,PATCH",
+	}))
 
 	err := godotenv.Load("./.env")
 	if err != nil {

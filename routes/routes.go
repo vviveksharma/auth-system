@@ -67,11 +67,9 @@ func RoutesWithNewMiddleware(app *fiber.App, h *controllers.Handler, client *red
 	role.Put("/disable/:id", h.DisableRole)
 	role.Delete("/:id", h.DeleteCustomRole)
 	role.Get("/:id/permissions", h.GetRolePermissions)
-
-	// Tenant routes - custom middleware for tenant-specific logic
 	tenant := app.Group("/tenant")
-	tenant.Post("/", h.CreateTenant)     // Public registration
-	tenant.Post("/login", h.LoginTenant) // Public login
+	tenant.Post("/", h.CreateTenant)
+	tenant.Post("/login", h.LoginTenant)
 
 	// Protected tenant routes
 	tenantProtected := tenant.Group("/")
@@ -79,7 +77,10 @@ func RoutesWithNewMiddleware(app *fiber.App, h *controllers.Handler, client *red
 	tenantProtected.Get("/tokens", h.ListTokens)
 	tenantProtected.Put("/tokens/:id", h.RevokeToken)
 	tenantProtected.Post("/tokens", h.CreateToken)
+	tenantProtected.Get("/me", h.GetTenantDetails)
 	tenantProtected.Post("/reset", h.ResetPassword)
 	tenantProtected.Put("/setpassword", h.SetPassword)
 	tenantProtected.Get("/dashboard", h.GetDashboardDetails)
+	tenantProtected.Get("/tokens/status", h.GetTokenDetailsStatus)
+	tenantProtected.Delete("/", h.DeleteTenant)
 }
