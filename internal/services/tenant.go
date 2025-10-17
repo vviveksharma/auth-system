@@ -24,7 +24,7 @@ type TenantService interface {
 	CreateToken(ctx context.Context, req *models.CreateTokenRequest) (*models.CreateTokenResponse, error)
 	ResetPassword(ctx context.Context, req *models.ResetTenantPasswordRequest) (*models.ResetPasswordTenantResponse, error)
 	SetPassword(ctx context.Context, req *models.SetTenantPasswordRequest) (*models.SetTenantPasswordResponse, error)
-	ListUsers(ctx context.Context) (resp []*models.ListUserTenant, err error)
+	ListUsers(ctx context.Context, page int, pageSize int, status string) (resp *pagination.PaginatedResponse[*models.ListUserTenant], err error)
 	GetTenantDetails(ctx context.Context) (resp *models.GetTenantDetails, err error)
 	DeleteTenant(ctx context.Context) (resp *models.DeleteTenantResponse, err error)
 	ListTokensWithStatus(ctx context.Context, page int, pageSize int, status string) (resp *pagination.PaginatedResponse[*models.GetListTokenWithStatus], err error)
@@ -421,16 +421,17 @@ func (t *Tenant) SetPassword(ctx context.Context, req *models.SetTenantPasswordR
 	}, nil
 }
 
-func (t *Tenant) ListUsers(ctx context.Context) (resp []*models.ListUserTenant, err error) {
+func (t *Tenant) ListUsers(ctx context.Context, page int, pageSize int, status string) (resp *pagination.PaginatedResponse[*models.ListUserTenant], err error) {
 	tenantId := ctx.Value("tenant_id").(string)
 	fmt.Println(tenantId)
-	userDetails, err := t.UserRepo.ListUsers(uuid.MustParse(tenantId))
+	userDetails, totalCount, err := t.TenantRepo.ListUserPaginated(uuid.MustParse(tenantId), page, pageSize, status)
 	if err != nil {
 		return nil, &dbmodels.ServiceResponse{
 			Code:    500,
 			Message: "error while fetching user data for the particular tenant: " + err.Error(),
 		}
 	}
+
 	loginDetails, err := t.UserLoginRepo.GetUsers(uuid.MustParse(tenantId))
 	if err != nil {
 		return nil, &dbmodels.ServiceResponse{
@@ -438,18 +439,48 @@ func (t *Tenant) ListUsers(ctx context.Context) (resp []*models.ListUserTenant, 
 			Message: "error while fetching login data for the particular tenant: " + err.Error(),
 		}
 	}
-	var user models.ListUserTenant
-	for _, users := range userDetails {
-		for _, login := range loginDetails {
-			user.Email = users.Name
-			user.Name = users.Name
-			user.CreatedAt = users.CreatedAt.String()
-			user.Role = login.RoleName
-			user.LogginStatus = login.Revoked
-			resp = append(resp, &user)
-		}
+
+	loginMap := make(map[uuid.UUID]*dbmodels.DBLogin)
+	for _, login := range loginDetails {
+		loginMap[login.UserId] = login
 	}
-	return resp, nil
+
+	var user []*models.ListUserTenant
+	for _, userDetail := range userDetails {
+		resp := &models.ListUserTenant{
+			Email:     userDetail.Email,
+			Name:      userDetail.Name,
+			CreatedAt: userDetail.CreatedAt.String(),
+			Role:      userDetail.Roles,
+		}
+		if _, exists := loginMap[userDetail.Id]; exists {
+			resp.LogginStatus = true
+		} else {
+			resp.LogginStatus = false
+		}
+
+		user = append(user, resp)
+	}
+
+	totalPages := int64(0)
+	if pageSize > 0 {
+		totalPages = (totalCount + int64(pageSize) - 1) / int64(pageSize)
+	}
+
+	hasNext := int64(page) < totalPages
+	hasPrev := page > 1
+	paginatedResponse := &pagination.PaginatedResponse[*models.ListUserTenant]{
+		Data: user,
+		Pagination: pagination.PaginationMeta{
+			Page:       page,
+			PageSize:   pageSize,
+			TotalPages: int(totalPages),
+			TotalItems: int(totalCount),
+			HasNext:    hasNext,
+			HasPrev:    hasPrev,
+		},
+	}
+	return paginatedResponse, nil
 }
 
 func (t *Tenant) GetTenantDetails(ctx context.Context) (resp *models.GetTenantDetails, err error) {
@@ -609,4 +640,3 @@ func (t *Tenant) ListTokensWithStatus(ctx context.Context, page int, pageSize in
 	}
 	return paginatedResponse, nil
 }
-

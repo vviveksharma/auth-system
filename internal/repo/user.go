@@ -13,7 +13,7 @@ import (
 type UserRepositoryInterface interface {
 	CreateUser(user *models.DBUser) error
 	GetUserDetails(conditions models.DBUser) (userDetails *models.DBUser, err error)
-	GetUserByEmail(email string) (userDetails *models.DBUser, err error)
+	GetUserByEmail(email string, tenantId uuid.UUID) (userDetails *models.DBUser, err error)
 	UpdateUserFields(userID uuid.UUID, input *dbmodels.UpdateUserRequest) error
 	UpdateUserRoles(userId uuid.UUID, role string) error
 	UpdatePassword(userId uuid.UUID, password string) error
@@ -60,14 +60,15 @@ func (ur *UserRepository) GetUserDetails(conditions models.DBUser) (userDetails 
 	return userDetails, nil
 }
 
-func (ur *UserRepository) GetUserByEmail(email string) (userDetails *models.DBUser, err error) {
+func (ur *UserRepository) GetUserByEmail(email string, tenantId uuid.UUID) (userDetails *models.DBUser, err error) {
 	transaction := ur.DB.Begin()
 	if transaction.Error != nil {
 		return nil, transaction.Error
 	}
 	defer transaction.Rollback()
 	user := transaction.First(&userDetails, models.DBUser{
-		Email: email,
+		Email:    email,
+		TenantId: tenantId,
 	})
 	if user.Error != nil {
 		return nil, user.Error

@@ -32,14 +32,15 @@ func (*DBUser) BeforeCreate(tx *gorm.DB) error {
 }
 
 type DBRoles struct {
-	Id        uuid.UUID `gorm:"primaryKey,column:id"`
-	Role      string    `json:"role"`
-	RoleId    uuid.UUID `json:"role_id"`
-	TenantId  uuid.UUID `gorm:"type:uuid;not null"`
-	RoleType  string    `json:"role_type"`
-	Status    bool      `json:"status"`
-	CreatedAt time.Time `gorm:"column:created_at;not_null"`
-	UpdatedAt time.Time `gorm:"column:updated_at;not_null"`
+	Id          uuid.UUID `gorm:"primaryKey,column:id"`
+	Role        string    `json:"role"`
+	DisplayName string    `json:"display_name"`
+	RoleId      uuid.UUID `json:"role_id"`
+	TenantId    uuid.UUID `gorm:"type:uuid;not null"`
+	RoleType    string    `json:"role_type"`
+	Status      bool      `json:"status"`
+	CreatedAt   time.Time `gorm:"column:created_at;not_null"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;not_null"`
 }
 
 func (DBRoles) TableName() string {

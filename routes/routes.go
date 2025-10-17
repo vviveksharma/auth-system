@@ -73,7 +73,7 @@ func RoutesWithNewMiddleware(app *fiber.App, h *controllers.Handler, client *red
 
 	// Protected tenant routes
 	tenantProtected := tenant.Group("/")
-	tenantProtected.Use(middlewares.TenantMiddleWare()) // Your existing tenant middleware
+	tenantProtected.Use(middlewares.TenantMiddleWare())
 	tenantProtected.Get("/tokens", h.ListTokens)
 	tenantProtected.Put("/tokens/:id", h.RevokeToken)
 	tenantProtected.Post("/tokens", h.CreateToken)
@@ -83,4 +83,5 @@ func RoutesWithNewMiddleware(app *fiber.App, h *controllers.Handler, client *red
 	tenantProtected.Get("/dashboard", h.GetDashboardDetails)
 	tenantProtected.Get("/tokens/status", h.GetTokenDetailsStatus)
 	tenantProtected.Delete("/", h.DeleteTenant)
+	tenantProtected.Get("/user", h.ListUserTenant)
 }

@@ -72,7 +72,7 @@ func (a *Auth) SetupRepo() error {
 func (a *Auth) LoginUser(req *models.UserLoginRequest, ctx context.Context) (res *models.UserLoginResponse, err error) {
 	tenant_id := ctx.Value("tenant_id").(string)
 	fmt.Println("the tenant id : ", tenant_id)
-	userDetails, err := a.UserRepo.GetUserByEmail(req.Email)
+	userDetails, err := a.UserRepo.GetUserByEmail(req.Email, uuid.MustParse(tenant_id))
 	if err != nil {
 		if err.Error() == "record not found" {
 			return nil, &dbmodels.ServiceResponse{

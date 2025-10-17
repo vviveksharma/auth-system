@@ -15,6 +15,7 @@ type TenantRepositoryInterface interface {
 	UpdateTenatDetailsPassword(tenantId string, password string) error
 	GetTenantDetails(conditions *models.DBTenant) (*models.DBTenant, error)
 	DeleteTenant(tenantId uuid.UUID) error
+	ListUserPaginated(tenantId uuid.UUID, page int, pageSize int, status string) ([]*models.DBUser, int64, error)
 }
 
 type TenantRepository struct {
@@ -209,4 +210,54 @@ func (t *TenantRepository) DeleteTenant(tenantId uuid.UUID) error {
 		deleteResetTokens.RowsAffected)
 
 	return nil
+}
+
+func (t *TenantRepository) ListUserPaginated(tenantId uuid.UUID, page int, pageSize int, status string) ([]*models.DBUser, int64, error) {
+	log.Printf("ListUserPaginated called: tenantId=%s, page=%d, pageSize=%d", tenantId, page, pageSize)
+
+	var totalCount int64
+	var userDetails []*models.DBUser
+	var dbstatus bool
+
+	switch status {
+	case "active":
+		dbstatus = true
+	case "inactive":
+		dbstatus = false
+	}
+
+	if status != "all" {
+		if err := t.DB.Model(&models.DBUser{}).
+			Where("tenant_id = ?", tenantId).Where("status = ? ", dbstatus).
+			Count(&totalCount).Error; err != nil {
+			log.Printf("Error counting users: %v", err)
+			return nil, 0, fmt.Errorf("error counting users: %w", err)
+		}
+	} else {
+		if err := t.DB.Model(&models.DBUser{}).
+			Where("tenant_id = ?", tenantId).
+			Count(&totalCount).Error; err != nil {
+			log.Printf("Error counting users: %v", err)
+			return nil, 0, fmt.Errorf("error counting users: %w", err)
+		}
+	}
+
+	log.Printf("Total users found: %d", totalCount)
+
+	offset := (page - 1) * pageSize
+
+	if err := t.DB.Model(&models.DBUser{}).
+		Where("tenant_id = ?", tenantId).
+		Order("created_at DESC").
+		Limit(pageSize).
+		Offset(offset).
+		Find(&userDetails).Error; err != nil {
+		log.Printf("Error fetching paginated users: %v", err)
+		return nil, 0, fmt.Errorf("error fetching users: %w", err)
+	}
+
+	log.Printf("Successfully fetched %d users (page %d, pageSize %d, total %d)",
+		len(userDetails), page, pageSize, totalCount)
+
+	return userDetails, totalCount, nil
 }

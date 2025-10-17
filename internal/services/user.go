@@ -61,7 +61,7 @@ func (u *User) SetupRepo() error {
 
 func (u *User) RegisterUser(ctx context.Context, req *models.UserRequest) (*models.UserResponse, error) {
 	tenantId := ctx.Value("tenant_id").(string)
-	userDetails, err := u.UserRepo.GetUserByEmail(req.Email)
+	userDetails, err := u.UserRepo.GetUserByEmail(req.Email, uuid.MustParse(tenantId))
 	if err != nil {
 		if err.Error() != "record not found" {
 			return nil, &dbmodels.ServiceResponse{
@@ -104,10 +104,10 @@ func (u *User) RegisterUser(ctx context.Context, req *models.UserRequest) (*mode
 }
 
 func (u *User) GetUserDetails(ctx context.Context, req *models.GetUserDetailsRequest) (*models.UserDetailsResponse, error) {
-	tenantId := ctx.Value("tenant_id").(uuid.UUID)
+	tenantId := ctx.Value("tenant_id").(string)
 	userDetails, err := u.UserRepo.GetUserDetails(dbmodels.DBUser{
-		Id: uuid.MustParse(req.Id),
-		TenantId: tenantId,
+		Id:       uuid.MustParse(req.Id),
+		TenantId: uuid.MustParse(tenantId),
 	})
 	if err != nil {
 		if err.Error() == "record not found" {
@@ -130,10 +130,10 @@ func (u *User) GetUserDetails(ctx context.Context, req *models.GetUserDetailsReq
 }
 
 func (u *User) UpdateUserDetails(ctx context.Context, req *models.UpdateUserRequest, userId string) (*models.UpdateUserResponse, error) {
-	tenantId := ctx.Value("tenant_id").(uuid.UUID)
+	tenantId := ctx.Value("tenant_id").(string)
 	userDetails, err := u.UserRepo.GetUserDetails(dbmodels.DBUser{
-		Id: uuid.MustParse(userId),
-		TenantId: tenantId,
+		Id:       uuid.MustParse(userId),
+		TenantId: uuid.MustParse(tenantId),
 	})
 	if err != nil {
 		if err.Error() == "record not found" {
@@ -163,10 +163,10 @@ func (u *User) UpdateUserDetails(ctx context.Context, req *models.UpdateUserRequ
 }
 
 func (u *User) GetUserById(ctx context.Context, userId string) (*models.GetUserByIdResponse, error) {
-	tenantId := ctx.Value("tenant_id").(uuid.UUID)
+	tenantId := ctx.Value("tenant_id").(string)
 	userDetails, err := u.UserRepo.GetUserDetails(dbmodels.DBUser{
-		Id: uuid.MustParse(userId),
-		TenantId: tenantId,
+		Id:       uuid.MustParse(userId),
+		TenantId: uuid.MustParse(tenantId),
 	})
 	if err != nil {
 		if err.Error() == "record not found" {
@@ -189,10 +189,10 @@ func (u *User) GetUserById(ctx context.Context, userId string) (*models.GetUserB
 }
 
 func (u *User) AssignUserRole(ctx context.Context, req *models.AssignRoleRequest, userId string) (*models.AssignRoleResponse, error) {
-	tenantId := ctx.Value("tenant_id").(uuid.UUID)
+	tenantId := ctx.Value("tenant_id").(string)
 	userDetails, err := u.UserRepo.GetUserDetails(dbmodels.DBUser{
-		Id: uuid.MustParse(userId),
-		TenantId: tenantId,
+		Id:       uuid.MustParse(userId),
+		TenantId: uuid.MustParse(tenantId),
 	})
 	if err != nil {
 		if err.Error() == "record not found" {
@@ -220,7 +220,8 @@ func (u *User) AssignUserRole(ctx context.Context, req *models.AssignRoleRequest
 }
 
 func (u *User) ResetPassword(ctx context.Context, req *models.ResetPasswordRequest) (*models.ResetPasswordResponse, error) {
-	userDetails, err := u.UserRepo.GetUserByEmail(req.Email)
+	tenantId := ctx.Value("tenant_id").(string)
+	userDetails, err := u.UserRepo.GetUserByEmail(req.Email, uuid.MustParse(tenantId))
 	if err != nil {
 		if err.Error() == "record not found" {
 			return nil, &dbmodels.ServiceResponse{
@@ -253,6 +254,7 @@ func (u *User) ResetPassword(ctx context.Context, req *models.ResetPasswordReque
 }
 
 func (u *User) SetPassword(ctx context.Context, req *models.UserVerifyOTPRequest) (*models.UserVerifyOTPRequest, error) {
+	tenantId := ctx.Value("tenant_id").(string)
 	istoken, err := u.ResetTokenRepo.VerifyOTP(req.OTP)
 	if err != nil {
 		return nil, &dbmodels.ServiceResponse{
@@ -267,7 +269,7 @@ func (u *User) SetPassword(ctx context.Context, req *models.UserVerifyOTPRequest
 		}
 	}
 	// lets set new pass
-	userDetails, err := u.UserRepo.GetUserByEmail(req.Email)
+	userDetails, err := u.UserRepo.GetUserByEmail(req.Email, uuid.MustParse(tenantId))
 	if err != nil {
 		if err.Error() == "record not found" {
 			return nil, &dbmodels.ServiceResponse{
@@ -299,10 +301,10 @@ func (u *User) SetPassword(ctx context.Context, req *models.UserVerifyOTPRequest
 }
 
 func (u *User) DeleteUser(ctx context.Context, userId uuid.UUID) (*models.DeleteUserResponse, error) {
-	tenantId := ctx.Value("tenant_id").(uuid.UUID)
+	tenantId := ctx.Value("tenant_id").(string)
 	userDetails, err := u.UserRepo.GetUserDetails(dbmodels.DBUser{
-		Id: userId,
-		TenantId: tenantId,
+		Id:       userId,
+		TenantId: uuid.MustParse(tenantId),
 	})
 	if err != nil {
 		if err.Error() == "record not found" {
@@ -435,9 +437,9 @@ func (u *User) DisbaleUser(ctx context.Context, userId uuid.UUID) (*models.Disab
 }
 
 func (u *User) GetUserRole(ctx context.Context, userId uuid.UUID) (*models.GetRoleDetailsUser, error) {
-	tenantId := ctx.Value("tenant_id").(uuid.UUID)
+	tenantId := ctx.Value("tenant_id").(string)
 	userDetails, err := u.UserRepo.GetUserDetails(dbmodels.DBUser{
-		TenantId: tenantId,
+		TenantId: uuid.MustParse(tenantId),
 		Id:       userId,
 	})
 	if err != nil {

@@ -156,7 +156,7 @@ type UserVerifyOTPResponse struct {
 type ListUserTenant struct {
 	Name         string `json:"name"`
 	Email        string `json:"email"`
-	Role         string `json:"role"`
+	Role         []string `json:"role"`
 	LogginStatus bool   `json:"log_status"`
 	CreatedAt    string `json:"created_at"`
 }

@@ -301,3 +301,44 @@ func (h *Handler) GetTokenDetailsStatus(ctx *fiber.Ctx) error {
 		Data:    resp,
 	})
 }
+
+func (h *Handler) ListUserTenant(ctx *fiber.Ctx) error {
+	status := ctx.Query("status")
+
+	if status == "" {
+		status = "all"
+	} else {
+		if status != "active" && status != "inactive" && status != "all" {
+			return ctx.Status(fiber.StatusBadRequest).JSON(dbmodels.ServiceResponse{
+				Code:    fiber.StatusBadRequest,
+				Message: "Invalid request in the query parameter. The status must be 'active', 'inactive', or 'all'.",
+			})
+		}
+	}
+
+	// Parse pagination parameters
+	page := ctx.Query("page")
+	page_size := ctx.Query("page_size")
+	pageInt := 1
+	pageSizeInt := 5
+	if page != "" {
+		pageInt, _ = strconv.Atoi(page)
+	}
+	if page_size != "" {
+		pageSizeInt, _ = strconv.Atoi(page_size)
+	}
+
+	resp, err := h.TenantService.ListUsers(ctx.Context(), pageInt, pageSizeInt, status)
+	if err != nil {
+		if serviceErr, ok := err.(*dbmodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(err)
+		} else {
+			return ctx.JSON(500, fmt.Sprintf("An unexpected error occurred while deleting user: %v", err)+err.Error())
+		}
+	}
+	return ctx.Status(fiber.StatusOK).JSON(&dbmodels.ServiceResponse{
+		Code:    200,
+		Message: "User fetched successfully",
+		Data:    resp,
+	})
+}
