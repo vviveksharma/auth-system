@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gofiber/fiber/v2/log"
 	"github.com/google/uuid"
 	"github.com/vviveksharma/auth/db"
 	"github.com/vviveksharma/auth/internal/models"
@@ -18,7 +17,6 @@ import (
 
 type RoleService interface {
 	CreateCustomRole(req *models.CreateCustomRole, ctx context.Context) (resp *models.CreateCustomRoleResponse, err error)
-	VerifyRole(req *models.VerifyRoleRequest) (response *models.VerifyRoleResponse, err error)
 	ListRoles(roleTypeFlag string, page int, pageSize int, ctx context.Context) (*pagination.PaginatedResponse[*models.ListAllRolesResponse], error)
 	UpdateRolePermission(req *models.UpdateRolePermissions, roleId uuid.UUID, ctx context.Context) (resp *models.CreateCustomRoleResponse, err error)
 	DeleteRole(roleId uuid.UUID, ctx context.Context) (*models.DeleteRoleResponse, error)
@@ -62,37 +60,13 @@ func (r *Role) SetupRepo() error {
 	return nil
 }
 
-func (r *Role) VerifyRole(req *models.VerifyRoleRequest) (response *models.VerifyRoleResponse, err error) {
-	roleDetails, err := r.RoleRepo.FindRoleId(req.RoleName)
-	if err != nil {
-		if err.Error() == "record not found" {
-			return nil, &dbmodels.ServiceResponse{
-				Code:    404,
-				Message: "No role with this name exists",
-			}
-		} else {
-			return nil, &dbmodels.ServiceResponse{
-				Code:    404,
-				Message: "error while finding the role:" + err.Error(),
-			}
-		}
-	}
-	log.Info("the roleId: ", roleDetails)
-	if roleDetails != uuid.MustParse(req.RoleId) {
-		return nil, &dbmodels.ServiceResponse{
-			Code:    404,
-			Message: "Role name and ID do not match. Please provide the correct role ID and role name.",
-		}
-	}
-	return &models.VerifyRoleResponse{
-		Message: true,
-	}, nil
-}
-
 func (r *Role) CreateCustomRole(req *models.CreateCustomRole, ctx context.Context) (resp *models.CreateCustomRoleResponse, err error) {
-	// First fetching the role id
 	tenantId := ctx.Value("tenant_id").(string)
-	roleDetails, err := r.RoleRepo.GetRoleByName(req.Name, uuid.MustParse(tenantId))
+	roleDetails, err := r.RoleRepo.GetRolesDetails(&dbmodels.DBRoles{
+		Role:        req.Name,
+		DisplayName: req.DisplayName,
+		TenantId:    uuid.MustParse(tenantId),
+	})
 	if err != nil && err.Error() != "record not found" {
 		return nil, &dbmodels.ServiceResponse{
 			Code:    500,
@@ -284,20 +258,7 @@ func (r *Role) DisableRole(roleId uuid.UUID, ctx context.Context) (*models.Disab
 func (r *Role) GetRouteDetails(roleId uuid.UUID, ctx context.Context) (*models.GetRouteDetailsResponse, error) {
 	tenantId := ctx.Value("tenant_id").(string)
 	// check the roleDetails value and then select the tenantId
-	isSystemRole, err := r.RoleRepo.IsSystemRole(roleId)
-	if err != nil {
-		if err.Error() == "record not found" {
-			return nil, &dbmodels.ServiceResponse{
-				Code:    404,
-				Message: "No role found with the provided role ID. Please verify the role ID and try again.",
-			}
-		} else {
-			return nil, &dbmodels.ServiceResponse{
-				Code:    500,
-				Message: "An unexpected error occurred while retrieving role details from the database while checking the isSystemRole: " + err.Error(),
-			}
-		}
-	}
+	isSystemRole := models.IsSystemRole(roleId)
 	if isSystemRole {
 		tenantId = dbmodels.GetSystemTenantId()
 	}

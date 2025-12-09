@@ -24,6 +24,7 @@ COPY --from=builder /app/docs /app/docs
 COPY --from=builder /app/permissions /app/permissions
  
 EXPOSE 8080
+EXPOSE 8081
 
 VOLUME /app/data
 CMD ["./app"]

@@ -73,6 +73,16 @@
       "description": "Enable custom roles only"
     },
     {
+      "route":"/request",
+      "methods": ["POST", "GET"],
+      "description": "Make request for a role assignment"
+    },
+    {
+      "route":"/request/status",
+      "methods":["GET"],
+      "description":"Get the status of the request for the role assignment"
+    },
+    {
       "route": "/roles/:id/disable",
       "methods": ["PUT"],
       "params": {

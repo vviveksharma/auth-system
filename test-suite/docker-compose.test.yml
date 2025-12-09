@@ -1,0 +1,153 @@
+version: "3.8"
+
+services:
+  # Shared Database - CockroachDB
+  test-db:
+    image: cockroachdb/cockroach:v23.1.11
+    command: start-single-node --insecure
+    container_name: test-auth-database
+    ports:
+      - "26257:26257"
+    volumes:
+      - cockroach-data:/cockroach/cockroach-data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health?ready=1"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+    networks:
+      - test-auth-network
+
+  # Shared Cache - Redis
+  test-redis:
+    image: redis:alpine
+    container_name: test-auth-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - test-auth-network
+
+  # Message Queue - RabbitMQ
+  test-rabbitmq:
+    image: rabbitmq:3-management
+    container_name: test-auth-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: password
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - test-auth-network
+
+  # Shared Mail Server - Mailpit
+  test-mailpit:
+    image: axllent/mailpit
+    container_name: test-auth-mailpit
+    restart: always
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    environment:
+      - MP_SMTP_AUTH_ALLOW_INSECURE=true
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8025"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:   
+      - test-auth-network
+
+  # API Server (Port 8080) - For Application Key Clients
+  test-api-server:
+    build:
+      context: ..
+      dockerfile: test-suite/Dockerfile.api
+    container_name: test-auth-api-server
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_MODE=API
+      - DB_HOST=test-auth-database
+      - DB_PORT=26257
+      - REDIS_ADDR=test-auth-redis:6379
+      - SMTP_HOST=test-auth-mailpit
+      - SMTP_PORT=1025
+      - RABBITMQ_URL=amqp://user:password@test-auth-rabbitmq:5672/
+    depends_on:
+      test-db:
+        condition: service_healthy
+      test-redis:
+        condition: service_healthy
+      test-rabbitmq:
+        condition: service_healthy
+      test-mailpit:
+        condition: service_healthy
+    networks:
+      - test-auth-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # UI/Tenant Server (Port 8081) - For Tenant Admin Portal
+  test-ui-server:
+    build:
+      context: ..
+      dockerfile: test-suite/Dockerfile.ui
+    container_name: test-auth-ui-server
+    ports:
+      - "8081:8081"
+    environment:
+      - SERVER_MODE=UI
+      - DB_HOST=test-auth-database
+      - DB_PORT=26257
+      - REDIS_ADDR=test-auth-redis:6379
+      - SMTP_HOST=test-auth-mailpit
+      - SMTP_PORT=1025
+      - RABBITMQ_URL=amqp://user:password@test-auth-rabbitmq:5672/
+    depends_on:
+      test-db:
+        condition: service_healthy
+      test-redis:
+        condition: service_healthy
+      test-rabbitmq:
+        condition: service_healthy
+      test-mailpit:
+        condition: service_healthy
+    networks:
+      - test-auth-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  cockroach-data:
+  redis-data:
+  rabbitmq-data:
+
+networks:
+  test-auth-network:
+    driver: bridge

@@ -1,12 +1,13 @@
 version: "3.8"
 
 services:
+  # Shared Database - CockroachDB
   db:
     image: cockroachdb/cockroach:v23.1.11
     command: start-single-node --insecure
+    container_name: auth-database
     ports:
       - "26257:26257"
-      - "8081:8080"
     volumes:
       - cockroach-data:/cockroach/cockroach-data
     healthcheck:
@@ -15,50 +16,138 @@ services:
       timeout: 2s
       retries: 10
     networks:
-      - mynetwork
+      - auth-network
 
+  # Shared Cache - Redis
   redis:
     image: redis:alpine
+    container_name: auth-redis
     ports:
       - "6379:6379"
     volumes:
       - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     networks:
-      - mynetwork
+      - auth-network
 
+  # Message Queue - RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: auth-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: password
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - auth-network
+
+  # Shared Mail Server - Mailpit
   mailpit:
     image: axllent/mailpit
-    container_name: mailpit
+    container_name: auth-mailpit
     restart: always
     ports:
-      - "1025:1025"
-      - "8025:8025"
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
     environment:
       - MP_SMTP_AUTH_ALLOW_INSECURE=true
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8025"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     networks:   
-      - mynetwork
+      - auth-network
 
-  app:
+  # API Server (Port 8080) - For Application Key Clients
+  api-server:
     build:
       context: .
+      dockerfile: Dockerfile.api
+    container_name: auth-api-server
     ports:
       - "8080:8080"
     environment:
-      - DB_HOST=default
+      - SERVER_MODE=API
+      - DB_HOST=auth-database
       - DB_PORT=26257
-      - REDIS_HOST=redis
+      - REDIS_ADDR=auth-redis:6379
+      - SMTP_HOST=auth-mailpit
+      - SMTP_PORT=1025
+      - RABBITMQ_URL=amqp://user:password@auth-rabbitmq:5672/
     depends_on:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
     networks:
-      - mynetwork
+      - auth-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # UI/Tenant Server (Port 8081) - For Tenant Admin Portal
+  ui-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+    container_name: auth-ui-server
+    ports:
+      - "8081:8081"
+    environment:
+      - SERVER_MODE=UI
+      - DB_HOST=auth-database
+      - DB_PORT=26257
+      - REDIS_ADDR=auth-redis:6379
+      - SMTP_HOST=auth-mailpit
+      - SMTP_PORT=1025
+      - RABBITMQ_URL=amqp://user:password@\:5672/
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+    networks:
+      - auth-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 volumes:
   cockroach-data:
   redis-data:
+  rabbitmq-data:
 
 networks:
-  mynetwork:
+  auth-network:
     driver: bridge

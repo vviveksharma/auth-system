@@ -3,11 +3,13 @@ package services
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/vviveksharma/auth/db"
 	"github.com/vviveksharma/auth/internal/models"
+	"github.com/vviveksharma/auth/internal/pagination"
 	"github.com/vviveksharma/auth/internal/repo"
 	"github.com/vviveksharma/auth/internal/utils"
 	dbmodels "github.com/vviveksharma/auth/models"
@@ -22,7 +24,7 @@ type UserService interface {
 	ResetPassword(ctx context.Context, req *models.ResetPasswordRequest) (*models.ResetPasswordResponse, error)
 	SetPassword(ctx context.Context, req *models.UserVerifyOTPRequest) (*models.UserVerifyOTPRequest, error)
 	DeleteUser(ctx context.Context, userId uuid.UUID) (*models.DeleteUserResponse, error)
-	ListUsers(ctx context.Context) (resp []*models.ListUsersResponse, err error)
+	ListUsers(ctx context.Context, page int, pageSize int, status string) (resp *pagination.PaginatedResponse[*models.ListUsersResponse], err error)
 	EnableUser(ctx context.Context, userId uuid.UUID) (*models.EnableUserResponse, error)
 	DisbaleUser(ctx context.Context, userId uuid.UUID) (*models.DisableUserResponse, error)
 	GetUserRole(ctx context.Context, userId uuid.UUID) (*models.GetRoleDetailsUser, error)
@@ -32,6 +34,7 @@ type User struct {
 	UserRepo       repo.UserRepositoryInterface
 	TokenRepo      repo.TokenRepository
 	ResetTokenRepo repo.ResetTokenRepositoryInterface
+	SharedRepo     repo.SharedRepoInterface
 }
 
 func NewUserService() (UserService, error) {
@@ -56,6 +59,12 @@ func (u *User) SetupRepo() error {
 		return err
 	}
 	u.ResetTokenRepo = rtoken
+
+	sharedRepo, err := repo.NewSharedRepository(db.DB)
+	if err != nil {
+		return err
+	}
+	u.SharedRepo = sharedRepo
 	return nil
 }
 
@@ -72,7 +81,7 @@ func (u *User) RegisterUser(ctx context.Context, req *models.UserRequest) (*mode
 	}
 	if userDetails != nil && userDetails.Email == req.Email {
 		return nil, &dbmodels.ServiceResponse{
-			Code:    423,
+			Code:    409,
 			Message: "this user already exist proceed to login",
 		}
 	}
@@ -90,6 +99,7 @@ func (u *User) RegisterUser(ctx context.Context, req *models.UserRequest) (*mode
 		Email:     req.Email,
 		Password:  hashedpassword,
 		Salt:      salt,
+		Status:    true,
 		Roles:     []string{"guest"},
 	})
 	if err != nil {
@@ -225,7 +235,7 @@ func (u *User) ResetPassword(ctx context.Context, req *models.ResetPasswordReque
 	if err != nil {
 		if err.Error() == "record not found" {
 			return nil, &dbmodels.ServiceResponse{
-				Code:    400,
+				Code:    404,
 				Message: "Unable to find the user with the provided email: " + req.Email,
 			}
 		} else {
@@ -264,7 +274,7 @@ func (u *User) SetPassword(ctx context.Context, req *models.UserVerifyOTPRequest
 	}
 	if !istoken {
 		return nil, &dbmodels.ServiceResponse{
-			Code:    423,
+			Code:    409,
 			Message: "token is already expired please try again",
 		}
 	}
@@ -319,7 +329,7 @@ func (u *User) DeleteUser(ctx context.Context, userId uuid.UUID) (*models.Delete
 			}
 		}
 	}
-	err = u.UserRepo.DeleteUser(userDetails.Id)
+	err = u.SharedRepo.DeleteUser(userDetails.Id, uuid.MustParse(tenantId))
 	if err != nil {
 		return nil, &dbmodels.ServiceResponse{
 			Code:    500,
@@ -331,33 +341,62 @@ func (u *User) DeleteUser(ctx context.Context, userId uuid.UUID) (*models.Delete
 	}, nil
 }
 
-func (u *User) ListUsers(ctx context.Context) (resp []*models.ListUsersResponse, err error) {
+func (u *User) ListUsers(ctx context.Context, page int, pageSize int, status string) (resp *pagination.PaginatedResponse[*models.ListUsersResponse], err error) {
 	tenant_id := ctx.Value("tenant_id").(string)
-	userDetails, err := u.UserRepo.ListUsers(uuid.MustParse(tenant_id))
+	log.Printf("🔍 [SERVICE] ListUsers called with: page=%d, pageSize=%d, status=%s, tenant_id=%s",
+		page, pageSize, status, tenant_id)
+
+	userDetails, totalCount, err := u.UserRepo.ListUsersPaginated(page, pageSize, uuid.MustParse(tenant_id), status)
 	if err != nil {
-		if err.Error() == "record not found" {
-			return nil, &dbmodels.ServiceResponse{
-				Code:    404,
-				Message: fmt.Sprintf("No user found with the provided tenanatID: %s.", tenant_id),
-			}
-		} else {
-			return nil, &dbmodels.ServiceResponse{
-				Code:    500,
-				Message: fmt.Sprintf("An error occurred while retrieving user details for given tenant ID %s: %s.", tenant_id, err.Error()),
-			}
+		log.Printf("❌ [SERVICE] Error from repo: %v", err)
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while getting the list of the users: " + err.Error(),
 		}
 	}
-	for _, user := range userDetails {
-		userdetails := &models.ListUsersResponse{
+
+	log.Printf("✅ [SERVICE] Received from repo: %d users, totalCount=%d", len(userDetails), totalCount)
+
+	var responseUser []*models.ListUsersResponse
+	for i, user := range userDetails {
+		log.Printf("   [SERVICE] Processing user %d: ID=%s, Email=%s, Name=%s, Roles=%v",
+			i+1, user.Id.String(), user.Email, user.Name, user.Roles)
+
+		userReponse := &models.ListUsersResponse{
 			Id:        user.Id,
-			Email:     user.Email,
+			CreatedAt: user.CreatedAt.Format("Jan 15, 2025"),
 			Name:      user.Name,
-			CreatedAt: user.CreatedAt.Format(time.RFC3339),
+			Email:     user.Email,
 			Roles:     user.Roles,
 		}
-		resp = append(resp, userdetails)
+		responseUser = append(responseUser, userReponse)
 	}
-	return resp, nil
+
+	log.Printf("🔍 [SERVICE] Built response array with %d users", len(responseUser))
+
+	totalPages := int64(0)
+	if pageSize > 0 {
+		totalPages = (totalCount + int64(pageSize) - 1) / int64(pageSize)
+	}
+	hasNext := int64(page) < totalPages
+	hasPrev := page > 1
+
+	log.Printf("🔍 [SERVICE] Pagination: totalPages=%d, hasNext=%v, hasPrev=%v", totalPages, hasNext, hasPrev)
+
+	paginatedResponse := &pagination.PaginatedResponse[*models.ListUsersResponse]{
+		Data: responseUser,
+		Pagination: pagination.PaginationMeta{
+			Page:       page,
+			PageSize:   pageSize,
+			TotalPages: int(totalPages),
+			TotalItems: int(totalCount),
+			HasNext:    hasNext,
+			HasPrev:    hasPrev,
+		},
+	}
+
+	log.Printf("✅ [SERVICE] Returning paginated response with %d users", len(paginatedResponse.Data))
+	return paginatedResponse, nil
 }
 
 func (u *User) EnableUser(ctx context.Context, userId uuid.UUID) (*models.EnableUserResponse, error) {
@@ -381,7 +420,7 @@ func (u *User) EnableUser(ctx context.Context, userId uuid.UUID) (*models.Enable
 	}
 	if userDetails.Status {
 		return nil, &dbmodels.ServiceResponse{
-			Code:    400,
+			Code:    409,
 			Message: fmt.Sprintf("User %s is already enabled for tenant %s", userId.String(), tenantId),
 		}
 	}
@@ -419,7 +458,7 @@ func (u *User) DisbaleUser(ctx context.Context, userId uuid.UUID) (*models.Disab
 	}
 	if !userDetails.Status {
 		return nil, &dbmodels.ServiceResponse{
-			Code:    400,
+			Code:    409,
 			Message: fmt.Sprintf("User %s is already disabled for tenant %s", userId.String(), tenantId),
 		}
 	}

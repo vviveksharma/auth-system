@@ -17,6 +17,16 @@
       "route": "/auth/register",
       "methods": ["POST"],
       "description": "Register the user"
+    },
+    {
+      "route":"/request",
+      "methods": ["POST", "GET"],
+      "description": "Make request for a role assignment"
+    },
+    {
+      "route":"/request/status",
+      "methods":["GET"],
+      "description":"Get the status of the request for the role assignment"
     }
   ]
 }

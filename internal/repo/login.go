@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/vviveksharma/auth/cache"
 	"github.com/vviveksharma/auth/models"
 	"gorm.io/gorm"
 )
@@ -13,7 +14,6 @@ type LoginRepositoryInterface interface {
 	GetUserById(id string) (loginDetails *models.DBLogin, err error)
 	UpdateUserToken(id string, jwt string) error
 	DeleteToken(id string) error
-	GetUsers(tenantId uuid.UUID) (loginDetails []*models.DBLogin, err error)
 	Logout(userId uuid.UUID) error
 }
 
@@ -93,19 +93,6 @@ func (l *LoginRepository) DeleteToken(id string) error {
 	return nil
 }
 
-func (l *LoginRepository) GetUsers(tenantId uuid.UUID) (loginDetails []*models.DBLogin, err error) {
-	transaction := l.DB.Begin()
-	if transaction.Error != nil {
-		return nil, transaction.Error
-	}
-	defer transaction.Rollback()
-	Err := transaction.Model(&models.DBLogin{}).Where("tenant_id = ? ", tenantId).Find(&loginDetails)
-	if Err.Error != nil {
-		return nil, Err.Error
-	}
-	return loginDetails, nil
-}
-
 func (l *LoginRepository) Logout(userId uuid.UUID) error {
 	transaction := l.DB.Begin()
 	if transaction.Error != nil {
@@ -123,5 +110,6 @@ func (l *LoginRepository) Logout(userId uuid.UUID) error {
 	if update.Error != nil {
 		return update.Error
 	}
+	cache.Set("blacklist:"+loginDetails.JWTToken, "expired", 0)
 	return nil
 }

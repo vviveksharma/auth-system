@@ -112,6 +112,17 @@ definitions:
       password:
         type: string
     type: object
+  models.UserDetailsResponse:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      role:
+        items:
+          type: string
+        type: array
+    type: object
   models.UserLoginRequest:
     properties:
       email:
@@ -141,23 +152,60 @@ definitions:
       otp:
         type: string
     type: object
-  models.VerifyRoleRequest:
-    properties:
-      role_id:
-        type: string
-      role_name:
-        type: string
-    type: object
 info:
   contact: {}
 paths:
-  /login:
+  /auth/:
+    post:
+      consumes:
+      - application/json
+      description: Registers a new user in the system under the authenticated tenant.
+        User is assigned 'guest' role by default. Email must be unique within tenant.
+        Password is hashed with Argon2.
+      parameters:
+      - description: 'User registration details: name (required), email (required),
+          password (required)'
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User registered successfully with default 'guest' role
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+        "400":
+          description: Bad request, missing required fields (name, email, or password)
+          schema:
+            $ref: '#/definitions/models.BadRequestResponse'
+        "409":
+          description: Conflict, user with this email already exists in tenant
+          schema:
+            $ref: '#/definitions/models.ConflictResponse'
+        "422":
+          description: Unprocessable entity, invalid JSON format
+          schema:
+            $ref: '#/definitions/models.StatusUnprocessableEntityResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.InternalServerErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Register New User
+      tags:
+      - User
+  /auth/login:
     post:
       consumes:
       - application/json
       description: Authenticates a user and returns a JWT token upon successful login.
+        Requires email, password, and role to be provided.
       parameters:
-      - description: User login credentials
+      - description: User login credentials including email, password, and role
         in: body
         name: body
         required: true
@@ -174,6 +222,18 @@ paths:
           description: Invalid credentials or missing fields
           schema:
             $ref: '#/definitions/models.BadRequestResponse'
+        "401":
+          description: Unauthorized, invalid credentials
+          schema:
+            $ref: '#/definitions/models.UnauthorizedResponse'
+        "403":
+          description: Forbidden, user doesn't have required role
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+        "404":
+          description: User or role not found
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
         "422":
           description: Error while parsing the request body
           schema:
@@ -182,12 +242,38 @@ paths:
           description: Unexpected server error
           schema:
             $ref: '#/definitions/models.InternalServerErrorResponse'
+      security:
+      - ApiKeyAuth: []
       summary: User Login
       tags:
       - Auth
-  /refresh-token:
-    post:
+  /auth/logout:
+    put:
       description: Logs out the logged in user and invalidates its existing token.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Logout successful message
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+        "401":
+          description: Unauthorized, invalid or missing JWT token
+          schema:
+            $ref: '#/definitions/models.UnauthorizedResponse'
+        "500":
+          description: Unexpected server error
+          schema:
+            $ref: '#/definitions/models.InternalServerErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Logout the user
+      tags:
+      - Auth
+  /auth/refresh:
+    put:
+      description: Refreshes and returns a new JWT token for the authenticated user.
+        Requires a valid JWT token to be provided.
       produces:
       - application/json
       responses:
@@ -195,51 +281,73 @@ paths:
           description: Refreshed JWT token and success message
           schema:
             $ref: '#/definitions/models.ServiceResponse'
+        "401":
+          description: Unauthorized, invalid or missing JWT token
+          schema:
+            $ref: '#/definitions/models.UnauthorizedResponse'
         "500":
           description: Unexpected server error
           schema:
             $ref: '#/definitions/models.InternalServerErrorResponse'
-      summary: Logout the user
+      security:
+      - ApiKeyAuth: []
+      summary: Refresh JWT Token
       tags:
       - Auth
   /roles:
     get:
       consumes:
       - application/json
-      description: Retrieves all roles from the system. Optionally, you can filter
-        roles by type using the 'type' query parameter. If not provided, the default
-        type is used.
+      description: Retrieves all roles from the system with pagination support. Filter
+        roles by type using 'roleTypeFlag' query parameter ('custom' or 'default').
+        Includes role routes in response.
       parameters:
-      - description: Role type to filter (e.g., 'admin', 'user', 'default'). If not
-          provided, defaults to 'default'.
+      - description: 'Role type to filter: ''custom'' or ''default''. If not provided,
+          defaults to ''custom''.'
         in: query
-        name: type
+        name: roleTypeFlag
         type: string
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Number of items per page (default: 5)'
+        in: query
+        name: page_size
+        type: integer
       produces:
       - application/json
       responses:
         "200":
-          description: Roles fetched successfully. Data contains the list of roles.
+          description: Roles fetched successfully with pagination metadata. Data includes
+            role details and associated routes.
           schema:
             $ref: '#/definitions/models.ServiceResponse'
+        "400":
+          description: Bad request. Invalid roleTypeFlag parameter (must be 'custom'
+            or 'default').
+          schema:
+            $ref: '#/definitions/models.BadRequestResponse'
         "500":
           description: Internal server error. This occurs if there is an unexpected
             error while fetching roles.
           schema:
             $ref: '#/definitions/models.InternalServerErrorResponse'
-      summary: List all roles
+      security:
+      - ApiKeyAuth: []
+      summary: List all roles with pagination
       tags:
       - Roles
   /roles/:
     post:
       consumes:
       - application/json
-      description: Creates a new custom role with specified routes. Requires a unique
-        role name and a list of routes. Returns 422 if the request is invalid, 500
-        for internal errors.
+      description: Creates a new custom role with specified permissions. Requires
+        name, display_name, description, and permissions array with route, methods,
+        and description for each permission.
       parameters:
-      - description: Create Custom Role Request. Requires 'roleName' and 'routes'
-          fields.
+      - description: Create Custom Role Request. Requires 'name', 'display_name',
+          'description', and 'Permissions' array.
         in: body
         name: request
         required: true
@@ -253,10 +361,15 @@ paths:
           schema:
             $ref: '#/definitions/models.ServiceResponse'
         "400":
-          description: Bad Request. This occurs if 'roleName' or 'routes' are missing
-            or invalid.
+          description: Bad Request. This occurs if required fields (name, display_name,
+            description, or Permissions) are missing or invalid.
           schema:
             $ref: '#/definitions/models.BadRequestResponse'
+        "409":
+          description: Conflict. This occurs if a role with the same name already
+            exists.
+          schema:
+            $ref: '#/definitions/models.ConflictResponse'
         "422":
           description: Unprocessable Entity. This occurs if the request body cannot
             be parsed.
@@ -267,47 +380,9 @@ paths:
             error while creating the role.
           schema:
             $ref: '#/definitions/models.InternalServerErrorResponse'
+      security:
+      - ApiKeyAuth: []
       summary: Create custom role
-      tags:
-      - Roles
-  /roles/:id/permissions:
-    put:
-      consumes:
-      - application/json
-      description: Adds or removes permissions from a role. Requires role name and
-        lists of permissions to add or remove. Returns 422 if the request is invalid,
-        500 for internal errors.
-      parameters:
-      - description: Update Role Permissions Request. Requires 'roleName', 'addPermisions',
-          and 'removePermissions'.
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/models.UpdateRolePermissions'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Role permissions updated successfully.
-          schema:
-            $ref: '#/definitions/models.ServiceResponse'
-        "400":
-          description: Bad Request. This occurs if required fields are missing or
-            invalid.
-          schema:
-            $ref: '#/definitions/models.BadRequestResponse'
-        "422":
-          description: Unprocessable Entity. This occurs if the request body cannot
-            be parsed.
-          schema:
-            $ref: '#/definitions/models.StatusUnprocessableEntityResponse'
-        "500":
-          description: Internal server error. This occurs if there is an unexpected
-            error while updating permissions.
-          schema:
-            $ref: '#/definitions/models.InternalServerErrorResponse'
-      summary: Update role permissions
       tags:
       - Roles
   /roles/{id}:
@@ -315,8 +390,8 @@ paths:
       consumes:
       - application/json
       description: Deletes a custom role by its ID. Only custom roles can be deleted;
-        system roles are protected. Any users currently assigned this role will need
-        to be reassigned before deletion.
+        system/default roles are protected. The role must not be currently assigned
+        to any users.
       parameters:
       - description: Role ID to delete. Must be a valid UUID format.
         in: path
@@ -335,16 +410,18 @@ paths:
             empty, or not a valid UUID format.
           schema:
             $ref: '#/definitions/models.BadRequestResponse'
-        "409":
-          description: Conflict. This occurs if the role is currently assigned to
-            users and cannot be deleted.
+        "404":
+          description: Not Found. This occurs if no role exists with the provided
+            ID or if trying to delete a default/system role.
           schema:
-            $ref: '#/definitions/models.ConflictResponse'
+            $ref: '#/definitions/models.ServiceResponse'
         "500":
           description: Internal server error. This occurs if there is an unexpected
             error while deleting the role.
           schema:
             $ref: '#/definitions/models.InternalServerErrorResponse'
+      security:
+      - ApiKeyAuth: []
       summary: Delete custom role
       tags:
       - Roles
@@ -354,7 +431,7 @@ paths:
       - application/json
       description: Disables a role by its ID, preventing it from being assigned to
         new users. Existing users with this role will retain it but new assignments
-        are blocked. System roles cannot be disabled.
+        are blocked. System/default roles cannot be disabled.
       parameters:
       - description: Role ID to disable. Must be a valid UUID format.
         in: path
@@ -373,6 +450,16 @@ paths:
             empty, or not a valid UUID format.
           schema:
             $ref: '#/definitions/models.BadRequestResponse'
+        "403":
+          description: Forbidden. This occurs if trying to modify a system/default
+            role.
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+        "404":
+          description: Not Found. This occurs if no role exists with the provided
+            ID.
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
         "409":
           description: Conflict. This occurs if the role is already disabled.
           schema:
@@ -382,6 +469,8 @@ paths:
             error while disabling the role.
           schema:
             $ref: '#/definitions/models.InternalServerErrorResponse'
+      security:
+      - ApiKeyAuth: []
       summary: Disable role
       tags:
       - Roles
@@ -390,8 +479,8 @@ paths:
       consumes:
       - application/json
       description: Enables a role by its ID, making it available for assignment to
-        users. Only disabled roles can be enabled. System roles are always enabled
-        by default.
+        users. Only disabled custom roles can be enabled. System/default roles are
+        always enabled.
       parameters:
       - description: Role ID to enable. Must be a valid UUID format.
         in: path
@@ -410,6 +499,16 @@ paths:
             empty, or not a valid UUID format.
           schema:
             $ref: '#/definitions/models.BadRequestResponse'
+        "403":
+          description: Forbidden. This occurs if trying to modify a system/default
+            role.
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+        "404":
+          description: Not Found. This occurs if no role exists with the provided
+            ID.
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
         "409":
           description: Conflict. This occurs if the role is already enabled.
           schema:
@@ -419,6 +518,8 @@ paths:
             error while enabling the role.
           schema:
             $ref: '#/definitions/models.InternalServerErrorResponse'
+      security:
+      - ApiKeyAuth: []
       summary: Enable role
       tags:
       - Roles
@@ -427,10 +528,12 @@ paths:
       consumes:
       - application/json
       description: Retrieves all routes and permissions associated with a specific
-        role by role ID. This is useful for role management and permission auditing.
-        Returns detailed permission structure including HTTP methods and route information.
+        role by role ID. Returns detailed permission structure classified by HTTP
+        methods (GET, POST, PUT, DELETE, etc.), route information, role details, and
+        processing timestamp. Supports both custom and system roles.
       parameters:
       - description: Role ID to retrieve permissions for. Must be a valid UUID format.
+          Supports both custom and system role IDs.
         in: path
         name: id
         required: true
@@ -439,8 +542,9 @@ paths:
       - application/json
       responses:
         "200":
-          description: Role permissions retrieved successfully. Data contains the
-            detailed permission structure.
+          description: Role permissions retrieved successfully. Data contains Routes
+            (classified by method), RoutesJSON (formatted JSON string), RoleInfo,
+            and ProcessedAt timestamp.
           schema:
             $ref: '#/definitions/models.ServiceResponse'
         "400":
@@ -448,6 +552,11 @@ paths:
             empty, or not a valid UUID format.
           schema:
             $ref: '#/definitions/models.BadRequestResponse'
+        "404":
+          description: Not Found. This occurs if no role exists with the provided
+            ID.
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
         "500":
           description: Internal server error. This occurs if there is an unexpected
             error while retrieving role permissions.
@@ -458,31 +567,47 @@ paths:
       summary: Get role permissions
       tags:
       - Roles
-  /roles/verify:
-    post:
+    put:
       consumes:
       - application/json
-      description: Verifies if a role exists by roleId and roleName. Returns 404 if
-        either is missing or not found, 422 if the request body is invalid.
+      description: Adds or removes permissions from a role. Requires role name (role
+        field), and lists of permissions to add (add_permissions) or remove (remove_permissions).
+        Each permission includes route, methods array, and description.
       parameters:
-      - description: Verify Role Request. Requires both 'roleId' and 'roleName'.
+      - description: Role ID to update permissions for. Must be a valid UUID format.
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update Role Permissions Request. Requires 'role', 'add_permissions',
+          and 'remove_permissions'.
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/models.VerifyRoleRequest'
+          $ref: '#/definitions/models.UpdateRolePermissions'
       produces:
       - application/json
       responses:
         "200":
-          description: Role verified successfully.
+          description: Role permissions updated successfully.
           schema:
             $ref: '#/definitions/models.ServiceResponse'
         "400":
-          description: Bad Request. This occurs if either 'roleId' or 'roleName' is
-            missing or invalid.
+          description: Bad Request. This occurs if required fields are missing or
+            invalid.
           schema:
             $ref: '#/definitions/models.BadRequestResponse'
+        "404":
+          description: Not Found. This occurs if the role with the specified name
+            doesn't exist.
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
+        "409":
+          description: Conflict. This occurs if trying to modify a default/system
+            role.
+          schema:
+            $ref: '#/definitions/models.ConflictResponse'
         "422":
           description: Unprocessable Entity. This occurs if the request body cannot
             be parsed.
@@ -490,19 +615,22 @@ paths:
             $ref: '#/definitions/models.StatusUnprocessableEntityResponse'
         "500":
           description: Internal server error. This occurs if there is an unexpected
-            error while verifying the role.
+            error while updating permissions.
           schema:
             $ref: '#/definitions/models.InternalServerErrorResponse'
-      summary: Verify role
+      security:
+      - ApiKeyAuth: []
+      summary: Update role permissions
       tags:
       - Roles
   /user/{id}:
     delete:
       consumes:
       - application/json
-      description: Delete a user from the system using their unique identifier
+      description: Permanently deletes a user from the system using their unique identifier
+        (UUID). User must belong to the authenticated tenant. Cannot be undone.
       parameters:
-      - description: User ID
+      - description: User ID (UUID format)
         format: uuid
         in: path
         name: id
@@ -512,21 +640,27 @@ paths:
       - application/json
       responses:
         "200":
-          description: User successfully deleted
+          description: User successfully deleted with confirmation message
           schema:
             $ref: '#/definitions/models.ServiceResponse'
         "400":
-          description: Bad request, missing required fields
+          description: Bad request, 'id' path parameter is missing or empty
           schema:
             $ref: '#/definitions/models.BadRequestResponse'
+        "401":
+          description: Unauthorized, invalid or missing authentication
+          schema:
+            $ref: '#/definitions/models.UnauthorizedResponse'
         "404":
-          description: User not found
+          description: User not found with provided ID in the authenticated tenant
           schema:
             $ref: '#/definitions/models.ServiceResponse'
         "500":
-          description: Internal server error
+          description: Internal server error during deletion
           schema:
             $ref: '#/definitions/models.InternalServerErrorResponse'
+      security:
+      - ApiKeyAuth: []
       summary: Delete a user
       tags:
       - User
@@ -563,19 +697,20 @@ paths:
       summary: Get User Details by ID
       tags:
       - User
-  /user/{id}/role:
-    post:
+  /user/{id}/roles:
+    put:
       consumes:
       - application/json
-      description: Assigns a specific role to a user identified by their user ID.
-        Only users with sufficient privileges (e.g., admins) can perform this action.
+      description: Assigns a specific role (role name as string) to a user identified
+        by their user ID. Role must exist in the system. Only users with admin privileges
+        can perform this action.
       parameters:
-      - description: Unique identifier of the user to assign a role
+      - description: Unique identifier (UUID) of the user to assign a role
         in: path
         name: id
         required: true
         type: string
-      - description: Role assignment details
+      - description: Role assignment details with 'role' field (role name string)
         in: body
         name: request
         required: true
@@ -589,7 +724,7 @@ paths:
           schema:
             $ref: '#/definitions/models.ServiceResponse'
         "400":
-          description: Bad request, missing required fields
+          description: Bad request, 'role' field is required and cannot be empty
           schema:
             $ref: '#/definitions/models.BadRequestResponse'
         "401":
@@ -601,7 +736,7 @@ paths:
           schema:
             $ref: '#/definitions/models.ServiceResponse'
         "422":
-          description: Unprocessable entity, invalid input
+          description: Unprocessable entity, invalid JSON format
           schema:
             $ref: '#/definitions/models.StatusUnprocessableEntityResponse'
         "500":
@@ -613,21 +748,32 @@ paths:
       summary: Assign Role to User
       tags:
       - User
-  /user/details:
+  /user/me:
     get:
-      description: Returns the details of the user currently authenticated via the
-        API key or token. This endpoint is useful for profile pages or user dashboards.
+      description: Returns the details (name, email, roles) of the user currently
+        authenticated via JWT token. Extracted from token claims. Returns 404 if user
+        not found.
       produces:
       - application/json
       responses:
         "200":
-          description: User details successfully retrieved
+          description: User details successfully retrieved with name, email, and roles
+            array
           schema:
-            $ref: '#/definitions/models.ServiceResponse'
+            allOf:
+            - $ref: '#/definitions/models.ServiceResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.UserDetailsResponse'
+              type: object
         "401":
-          description: Unauthorized, invalid or missing authentication
+          description: Unauthorized, invalid or missing JWT authentication
           schema:
             $ref: '#/definitions/models.UnauthorizedResponse'
+        "404":
+          description: User not found in the system
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
         "500":
           description: Internal server error
           schema:
@@ -641,9 +787,11 @@ paths:
       consumes:
       - application/json
       description: Allows the authenticated user to update their profile information
-        such as name, email, or other editable fields. Requires authentication.
+        (name, email, or password). At least one field must be provided. User ID extracted
+        from JWT token.
       parameters:
-      - description: Fields to update for the user profile
+      - description: Fields to update (email, name, password). At least one field
+          required. All fields are optional pointers.
         in: body
         name: request
         required: true
@@ -657,15 +805,19 @@ paths:
           schema:
             $ref: '#/definitions/models.ServiceResponse'
         "400":
-          description: Bad request, missing required fields
+          description: Bad request, no fields provided for update
           schema:
             $ref: '#/definitions/models.BadRequestResponse'
         "401":
-          description: Unauthorized, invalid or missing authentication
+          description: Unauthorized, invalid or missing JWT authentication
           schema:
             $ref: '#/definitions/models.UnauthorizedResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
         "422":
-          description: Unprocessable entity, invalid input
+          description: Unprocessable entity, invalid JSON format
           schema:
             $ref: '#/definitions/models.StatusUnprocessableEntityResponse'
         "500":
@@ -677,14 +829,15 @@ paths:
       summary: Update Authenticated User Details
       tags:
       - User
-  /user/password/reset:
+  /user/resetpassword:
     post:
       consumes:
       - application/json
-      description: Initiates the password reset process for a user by sending a reset
-        link or OTP to the user's email.
+      description: Initiates password reset by creating a reset token valid for 15
+        minutes. Returns OTP/token in response (should be sent via email in production).
+        User must exist in the authenticated tenant.
       parameters:
-      - description: Password reset request details
+      - description: Password reset request with 'email' field
         in: body
         name: request
         required: true
@@ -694,32 +847,38 @@ paths:
       - application/json
       responses:
         "200":
-          description: Password reset initiated successfully
+          description: Password reset token generated successfully. Response contains
+            OTP in message field.
           schema:
             $ref: '#/definitions/models.ServiceResponse'
         "400":
-          description: Bad request, missing required fields
+          description: Bad request, email field is required or user not found with
+            provided email
           schema:
             $ref: '#/definitions/models.BadRequestResponse'
         "422":
-          description: Unprocessable entity, invalid input
+          description: Unprocessable entity, invalid JSON format
           schema:
             $ref: '#/definitions/models.StatusUnprocessableEntityResponse'
         "500":
-          description: Internal server error
+          description: Internal server error during token generation
           schema:
             $ref: '#/definitions/models.InternalServerErrorResponse'
+      security:
+      - ApiKeyAuth: []
       summary: Reset User Password
       tags:
       - User
-  /user/password/set:
-    post:
+  /user/setpassword:
+    put:
       consumes:
       - application/json
-      description: Sets a new password for the user after verifying the OTP sent to
-        their email. Requires email, OTP, new password, and confirmation.
+      description: Sets a new password after verifying OTP token. Requires email,
+        OTP (from reset request), new_password, and confirm_password. Passwords must
+        match. OTP expires after 15 minutes.
       parameters:
-      - description: OTP verification and new password details
+      - description: 'OTP verification with fields: email, otp, new_password, confirm_password
+          (all required)'
         in: body
         name: request
         required: true
@@ -733,82 +892,54 @@ paths:
           schema:
             $ref: '#/definitions/models.ServiceResponse'
         "400":
-          description: Bad request, missing required fields
+          description: Bad request, missing required fields (email, otp, new_password,
+            or confirm_password)
           schema:
             $ref: '#/definitions/models.BadRequestResponse'
-        "409":
-          description: Conflict, password confirmation failed
-          schema:
-            $ref: '#/definitions/models.ConflictResponse'
-        "422":
-          description: Unprocessable entity, invalid input
-          schema:
-            $ref: '#/definitions/models.StatusUnprocessableEntityResponse'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/models.InternalServerErrorResponse'
-      summary: Set New User Password
-      tags:
-      - User
-  /user/register:
-    post:
-      consumes:
-      - application/json
-      description: Registers a new user in the system under a specific tenant. This
-        endpoint is typically used for onboarding new users. Requires all mandatory
-        fields such as name, email, and password.
-      parameters:
-      - description: User registration details including name, email, and password
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/models.UserRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: User registered successfully
+        "404":
+          description: User not found with provided email
           schema:
             $ref: '#/definitions/models.ServiceResponse'
-        "400":
-          description: Bad request, missing required fields
-          schema:
-            $ref: '#/definitions/models.BadRequestResponse'
         "409":
-          description: Conflict, user already exists
+          description: Conflict, passwords don't match or OTP expired/invalid
           schema:
             $ref: '#/definitions/models.ConflictResponse'
         "422":
-          description: Unprocessable entity, invalid input
+          description: Unprocessable entity, invalid JSON format
           schema:
             $ref: '#/definitions/models.StatusUnprocessableEntityResponse'
         "500":
-          description: Internal server error
+          description: Internal server error during password update
           schema:
             $ref: '#/definitions/models.InternalServerErrorResponse'
-      summary: Register New User
+      security:
+      - ApiKeyAuth: []
+      summary: Set New User Password
       tags:
       - User
   /users:
     get:
-      description: Fetches a paginated list of all users in the system. This endpoint
-        is typically used by admins to view and manage users. Returns user details
-        with pagination support.
+      description: Fetches a list of all users for the authenticated tenant. Returns
+        user details including id, email, name, created_at (RFC3339), and roles array.
+        Client-side pagination applied (page 1, size 5).
       produces:
       - application/json
       responses:
         "200":
-          description: Users list successfully retrieved with pagination
+          description: Users list successfully retrieved with client-side pagination
+            metadata
           schema:
             $ref: '#/definitions/models.ServiceResponse'
         "401":
           description: Unauthorized, invalid or missing authentication
           schema:
             $ref: '#/definitions/models.UnauthorizedResponse'
+        "404":
+          description: No users found for the authenticated tenant
+          schema:
+            $ref: '#/definitions/models.ServiceResponse'
         "500":
-          description: Internal server error
+          description: Internal server error during user retrieval
           schema:
             $ref: '#/definitions/models.InternalServerErrorResponse'
       security:
@@ -819,9 +950,10 @@ paths:
   /users/{id}/disable:
     put:
       description: Disables a user account, preventing them from accessing the system.
-        Only users with sufficient privileges can perform this action.
+        Returns 400 if user is already disabled. User must belong to the authenticated
+        tenant. Existing sessions remain valid until expiry.
       parameters:
-      - description: Unique identifier of the user to disable
+      - description: Unique identifier (UUID) of the user to disable
         format: uuid
         in: path
         name: id
@@ -831,11 +963,11 @@ paths:
       - application/json
       responses:
         "200":
-          description: User account disabled successfully
+          description: User account disabled successfully with confirmation message
           schema:
             $ref: '#/definitions/models.ServiceResponse'
         "400":
-          description: Bad request, missing required fields
+          description: Bad request, 'id' is missing/empty OR user is already disabled
           schema:
             $ref: '#/definitions/models.BadRequestResponse'
         "401":
@@ -843,11 +975,11 @@ paths:
           schema:
             $ref: '#/definitions/models.UnauthorizedResponse'
         "404":
-          description: User not found
+          description: User not found with provided ID in the authenticated tenant
           schema:
             $ref: '#/definitions/models.ServiceResponse'
         "500":
-          description: Internal server error
+          description: Internal server error during status update
           schema:
             $ref: '#/definitions/models.InternalServerErrorResponse'
       security:
@@ -858,9 +990,10 @@ paths:
   /users/{id}/enable:
     put:
       description: Enables a previously disabled user account, allowing them to access
-        the system again. Only users with sufficient privileges can perform this action.
+        the system again. Returns 400 if user is already enabled. User must belong
+        to the authenticated tenant.
       parameters:
-      - description: Unique identifier of the user to enable
+      - description: Unique identifier (UUID) of the user to enable
         format: uuid
         in: path
         name: id
@@ -870,11 +1003,11 @@ paths:
       - application/json
       responses:
         "200":
-          description: User account enabled successfully
+          description: User account enabled successfully with confirmation message
           schema:
             $ref: '#/definitions/models.ServiceResponse'
         "400":
-          description: Bad request, missing required fields
+          description: Bad request, 'id' is missing/empty OR user is already enabled
           schema:
             $ref: '#/definitions/models.BadRequestResponse'
         "401":
@@ -882,11 +1015,11 @@ paths:
           schema:
             $ref: '#/definitions/models.UnauthorizedResponse'
         "404":
-          description: User not found
+          description: User not found with provided ID in the authenticated tenant
           schema:
             $ref: '#/definitions/models.ServiceResponse'
         "500":
-          description: Internal server error
+          description: Internal server error during status update
           schema:
             $ref: '#/definitions/models.InternalServerErrorResponse'
       security:

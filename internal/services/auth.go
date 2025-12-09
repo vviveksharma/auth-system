@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
 	"github.com/vviveksharma/auth/db"
 	"github.com/vviveksharma/auth/internal/models"
 	"github.com/vviveksharma/auth/internal/repo"
@@ -26,16 +25,14 @@ type Auth struct {
 	RoleRepo       repo.RoleRepositoryInterface
 	TokenRepo      repo.TokenRepositoryInterface
 	ResetTokenRepo repo.ResetTokenRepositoryInterface
-	RedisClient    *redis.Client
 }
 
-func NewAuthService(client *redis.Client) (AuthService, error) {
+func NewAuthService() (AuthService, error) {
 	ser := &Auth{}
 	err := ser.SetupRepo()
 	if err != nil {
 		return nil, err
 	}
-	ser.RedisClient = client
 	return ser, nil
 }
 
@@ -89,14 +86,14 @@ func (a *Auth) LoginUser(req *models.UserLoginRequest, ctx context.Context) (res
 	flag, err := utils.ComparePassword(req.Password, userDetails.Password, userDetails.Salt, utils.DefaultParams)
 	if err != nil {
 		return nil, &dbmodels.ServiceResponse{
-			Code:    423,
+			Code:    401,
 			Message: "error while comparing password: " + err.Error(),
 		}
 	}
 	if !flag {
 		return nil, &dbmodels.ServiceResponse{
-			Code:    404,
-			Message: "password doesn't exist or is expired",
+			Code:    401,
+			Message: "Invalid password",
 		}
 	}
 	// Fetching the user roles

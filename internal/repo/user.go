@@ -17,8 +17,7 @@ type UserRepositoryInterface interface {
 	UpdateUserFields(userID uuid.UUID, input *dbmodels.UpdateUserRequest) error
 	UpdateUserRoles(userId uuid.UUID, role string) error
 	UpdatePassword(userId uuid.UUID, password string) error
-	ListUsers(tenantId uuid.UUID) (resp []*models.DBUser, err error)
-	DeleteUser(id uuid.UUID) error
+	ListUsersPaginated(page int, pageSize int, tenantId uuid.UUID, status string) ([]*models.DBUser, int64, error)
 	ChangeStatus(flag bool, id uuid.UUID) error
 }
 
@@ -150,17 +149,63 @@ func (ur *UserRepository) UpdatePassword(userId uuid.UUID, password string) erro
 	return nil
 }
 
-func (ur *UserRepository) ListUsers(tenantId uuid.UUID) (resp []*models.DBUser, err error) {
-	transaction := ur.DB.Begin()
-	if transaction.Error != nil {
-		return nil, transaction.Error
+func (tu *UserRepository) ListUsersPaginated(page int, pageSize int, tenantId uuid.UUID, status string) ([]*models.DBUser, int64, error) {
+	log.Printf("🔍 [REPO] ListUsersPaginated called with: page=%d, pageSize=%d, tenantId=%s, status=%s",
+		page, pageSize, tenantId.String(), status)
+
+	var totalCount int64
+	var users []*models.DBUser
+
+	var is_active bool
+	if status == "enabled" {
+		is_active = true
+	} else {
+		is_active = false
 	}
-	defer transaction.Rollback()
-	users := transaction.Model(models.DBUser{}).Where("tenant_id = ?", tenantId).Find(&resp)
-	if users.Error != nil {
-		return nil, users.Error
+	log.Printf("🔍 [REPO] Converted status '%s' to is_active=%v", status, is_active)
+
+	// Count total matching users
+	countQuery := tu.DB.Model(&models.DBUser{}).
+		Where("tenant_id = ?", tenantId).
+		Where("status = ?", is_active)
+
+	log.Printf("🔍 [REPO] Count query SQL: %v", countQuery.ToSQL(func(tx *gorm.DB) *gorm.DB {
+		return tx.Count(&totalCount)
+	}))
+
+	if err := countQuery.Count(&totalCount).Error; err != nil {
+		log.Printf("❌ [REPO] Error counting the users: %v", err)
+		return nil, 0, fmt.Errorf("error counting the users present for this tenant: %v", err)
 	}
-	return resp, nil
+	log.Printf("✅ [REPO] Total users found: %d", totalCount)
+
+	offset := (page - 1) * pageSize
+	log.Printf("🔍 [REPO] Calculated offset: %d (page=%d, pageSize=%d)", offset, page, pageSize)
+
+	// Fetch paginated users
+	fetchQuery := tu.DB.Model(&models.DBUser{}).
+		Where("tenant_id = ?", tenantId).
+		Where("status = ?", is_active).
+		Order("created_at DESC").
+		Limit(pageSize).
+		Offset(offset)
+
+	log.Printf("🔍 [REPO] Fetch query SQL: %v", fetchQuery.ToSQL(func(tx *gorm.DB) *gorm.DB {
+		return tx.Find(&users)
+	}))
+
+	if err := fetchQuery.Find(&users).Error; err != nil {
+		log.Printf("❌ [REPO] Error fetching paginated users for the tenant: %v", err)
+		return nil, 0, fmt.Errorf("error fetching users for this tenant: %w", err)
+	}
+
+	log.Printf("✅ [REPO] Successfully fetched %d users for this tenant", len(users))
+	for i, user := range users {
+		log.Printf("   [REPO] User %d: ID=%s, Email=%s, Name=%s, Status=%v",
+			i+1, user.Id.String(), user.Email, user.Name, user.Status)
+	}
+
+	return users, totalCount, nil
 }
 
 func (ur *UserRepository) DeleteUser(id uuid.UUID) error {

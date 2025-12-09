@@ -20,10 +20,10 @@ var (
 	ModeratorId   = uuid.MustParse("1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed")
 	TenantId      = uuid.MustParse("dae760ab-0a7f-4cbd-8603-def85ad8e430")
 	requiredRoles = []models.DBRoles{
-		{Role: "admin", RoleId: AdminId, RoleType: "default", TenantId: TenantId, DisplayName: "Administrator"},
-		{Role: "user", RoleId: UserId, RoleType: "default", TenantId: TenantId, DisplayName: "Content Moderator"},
-		{Role: "guest", RoleId: GuestId, RoleType: "default", TenantId: TenantId, DisplayName: "Standard User"},
-		{Role: "moderator", RoleId: ModeratorId, RoleType: "default", TenantId: TenantId, DisplayName: "Guest User"},
+		{Role: "admin", RoleId: AdminId, RoleType: "default", TenantId: TenantId, DisplayName: "Administrator", Status: true},
+		{Role: "user", RoleId: UserId, RoleType: "default", TenantId: TenantId, DisplayName: "Content Moderator", Status: true},
+		{Role: "guest", RoleId: GuestId, RoleType: "default", TenantId: TenantId, DisplayName: "Standard User", Status: true},
+		{Role: "moderator", RoleId: ModeratorId, RoleType: "default", TenantId: TenantId, DisplayName: "Guest User", Status: true},
 	}
 )
 
