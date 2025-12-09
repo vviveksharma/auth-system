@@ -15,9 +15,77 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/login": {
+        "/auth/": {
             "post": {
-                "description": "Authenticates a user and returns a JWT token upon successful login.",
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Registers a new user in the system under the authenticated tenant. User is assigned 'guest' role by default. Email must be unique within tenant. Password is hashed with Argon2.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "User"
+                ],
+                "summary": "Register New User",
+                "parameters": [
+                    {
+                        "description": "User registration details: name (required), email (required), password (required)",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.UserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User registered successfully with default 'guest' role",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request, missing required fields (name, email, or password)",
+                        "schema": {
+                            "$ref": "#/definitions/models.BadRequestResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict, user with this email already exists in tenant",
+                        "schema": {
+                            "$ref": "#/definitions/models.ConflictResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable entity, invalid JSON format",
+                        "schema": {
+                            "$ref": "#/definitions/models.StatusUnprocessableEntityResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/models.InternalServerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/login": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Authenticates a user and returns a JWT token upon successful login. Requires email, password, and role to be provided.",
                 "consumes": [
                     "application/json"
                 ],
@@ -30,7 +98,7 @@ const docTemplate = `{
                 "summary": "User Login",
                 "parameters": [
                     {
-                        "description": "User login credentials",
+                        "description": "User login credentials including email, password, and role",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -52,6 +120,24 @@ const docTemplate = `{
                             "$ref": "#/definitions/models.BadRequestResponse"
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized, invalid credentials",
+                        "schema": {
+                            "$ref": "#/definitions/models.UnauthorizedResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden, user doesn't have required role",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "User or role not found",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
                     "422": {
                         "description": "Error while parsing the request body",
                         "schema": {
@@ -67,8 +153,13 @@ const docTemplate = `{
                 }
             }
         },
-        "/refresh-token": {
-            "post": {
+        "/auth/logout": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Logs out the logged in user and invalidates its existing token.",
                 "produces": [
                     "application/json"
@@ -79,9 +170,52 @@ const docTemplate = `{
                 "summary": "Logout the user",
                 "responses": {
                     "200": {
+                        "description": "Logout successful message",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized, invalid or missing JWT token",
+                        "schema": {
+                            "$ref": "#/definitions/models.UnauthorizedResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error",
+                        "schema": {
+                            "$ref": "#/definitions/models.InternalServerErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/refresh": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Refreshes and returns a new JWT token for the authenticated user. Requires a valid JWT token to be provided.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Refresh JWT Token",
+                "responses": {
+                    "200": {
                         "description": "Refreshed JWT token and success message",
                         "schema": {
                             "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized, invalid or missing JWT token",
+                        "schema": {
+                            "$ref": "#/definitions/models.UnauthorizedResponse"
                         }
                     },
                     "500": {
@@ -95,7 +229,12 @@ const docTemplate = `{
         },
         "/roles": {
             "get": {
-                "description": "Retrieves all roles from the system. Optionally, you can filter roles by type using the 'type' query parameter. If not provided, the default type is used.",
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retrieves all roles from the system with pagination support. Filter roles by type using 'roleTypeFlag' query parameter ('custom' or 'default'). Includes role routes in response.",
                 "consumes": [
                     "application/json"
                 ],
@@ -105,20 +244,38 @@ const docTemplate = `{
                 "tags": [
                     "Roles"
                 ],
-                "summary": "List all roles",
+                "summary": "List all roles with pagination",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Role type to filter (e.g., 'admin', 'user', 'default'). If not provided, defaults to 'default'.",
-                        "name": "type",
+                        "description": "Role type to filter: 'custom' or 'default'. If not provided, defaults to 'custom'.",
+                        "name": "roleTypeFlag",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number (default: 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of items per page (default: 5)",
+                        "name": "page_size",
                         "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Roles fetched successfully. Data contains the list of roles.",
+                        "description": "Roles fetched successfully with pagination metadata. Data includes role details and associated routes.",
                         "schema": {
                             "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request. Invalid roleTypeFlag parameter (must be 'custom' or 'default').",
+                        "schema": {
+                            "$ref": "#/definitions/models.BadRequestResponse"
                         }
                     },
                     "500": {
@@ -132,7 +289,12 @@ const docTemplate = `{
         },
         "/roles/": {
             "post": {
-                "description": "Creates a new custom role with specified routes. Requires a unique role name and a list of routes. Returns 422 if the request is invalid, 500 for internal errors.",
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Creates a new custom role with specified permissions. Requires name, display_name, description, and permissions array with route, methods, and description for each permission.",
                 "consumes": [
                     "application/json"
                 ],
@@ -145,7 +307,7 @@ const docTemplate = `{
                 "summary": "Create custom role",
                 "parameters": [
                     {
-                        "description": "Create Custom Role Request. Requires 'roleName' and 'routes' fields.",
+                        "description": "Create Custom Role Request. Requires 'name', 'display_name', 'description', and 'Permissions' array.",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -162,9 +324,15 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request. This occurs if 'roleName' or 'routes' are missing or invalid.",
+                        "description": "Bad Request. This occurs if required fields (name, display_name, description, or Permissions) are missing or invalid.",
                         "schema": {
                             "$ref": "#/definitions/models.BadRequestResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict. This occurs if a role with the same name already exists.",
+                        "schema": {
+                            "$ref": "#/definitions/models.ConflictResponse"
                         }
                     },
                     "422": {
@@ -182,113 +350,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/roles/:id/permissions": {
-            "put": {
-                "description": "Adds or removes permissions from a role. Requires role name and lists of permissions to add or remove. Returns 422 if the request is invalid, 500 for internal errors.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Roles"
-                ],
-                "summary": "Update role permissions",
-                "parameters": [
-                    {
-                        "description": "Update Role Permissions Request. Requires 'roleName', 'addPermisions', and 'removePermissions'.",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.UpdateRolePermissions"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Role permissions updated successfully.",
-                        "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request. This occurs if required fields are missing or invalid.",
-                        "schema": {
-                            "$ref": "#/definitions/models.BadRequestResponse"
-                        }
-                    },
-                    "422": {
-                        "description": "Unprocessable Entity. This occurs if the request body cannot be parsed.",
-                        "schema": {
-                            "$ref": "#/definitions/models.StatusUnprocessableEntityResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error. This occurs if there is an unexpected error while updating permissions.",
-                        "schema": {
-                            "$ref": "#/definitions/models.InternalServerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/roles/verify": {
-            "post": {
-                "description": "Verifies if a role exists by roleId and roleName. Returns 404 if either is missing or not found, 422 if the request body is invalid.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Roles"
-                ],
-                "summary": "Verify role",
-                "parameters": [
-                    {
-                        "description": "Verify Role Request. Requires both 'roleId' and 'roleName'.",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.VerifyRoleRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Role verified successfully.",
-                        "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request. This occurs if either 'roleId' or 'roleName' is missing or invalid.",
-                        "schema": {
-                            "$ref": "#/definitions/models.BadRequestResponse"
-                        }
-                    },
-                    "422": {
-                        "description": "Unprocessable Entity. This occurs if the request body cannot be parsed.",
-                        "schema": {
-                            "$ref": "#/definitions/models.StatusUnprocessableEntityResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error. This occurs if there is an unexpected error while verifying the role.",
-                        "schema": {
-                            "$ref": "#/definitions/models.InternalServerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/roles/{id}": {
             "delete": {
-                "description": "Deletes a custom role by its ID. Only custom roles can be deleted; system roles are protected. Any users currently assigned this role will need to be reassigned before deletion.",
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Deletes a custom role by its ID. Only custom roles can be deleted; system/default roles are protected. The role must not be currently assigned to any users.",
                 "consumes": [
                     "application/json"
                 ],
@@ -321,10 +390,10 @@ const docTemplate = `{
                             "$ref": "#/definitions/models.BadRequestResponse"
                         }
                     },
-                    "409": {
-                        "description": "Conflict. This occurs if the role is currently assigned to users and cannot be deleted.",
+                    "404": {
+                        "description": "Not Found. This occurs if no role exists with the provided ID or if trying to delete a default/system role.",
                         "schema": {
-                            "$ref": "#/definitions/models.ConflictResponse"
+                            "$ref": "#/definitions/models.ServiceResponse"
                         }
                     },
                     "500": {
@@ -338,7 +407,12 @@ const docTemplate = `{
         },
         "/roles/{id}/disable": {
             "put": {
-                "description": "Disables a role by its ID, preventing it from being assigned to new users. Existing users with this role will retain it but new assignments are blocked. System roles cannot be disabled.",
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Disables a role by its ID, preventing it from being assigned to new users. Existing users with this role will retain it but new assignments are blocked. System/default roles cannot be disabled.",
                 "consumes": [
                     "application/json"
                 ],
@@ -371,6 +445,18 @@ const docTemplate = `{
                             "$ref": "#/definitions/models.BadRequestResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden. This occurs if trying to modify a system/default role.",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found. This occurs if no role exists with the provided ID.",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
                     "409": {
                         "description": "Conflict. This occurs if the role is already disabled.",
                         "schema": {
@@ -388,7 +474,12 @@ const docTemplate = `{
         },
         "/roles/{id}/enable": {
             "put": {
-                "description": "Enables a role by its ID, making it available for assignment to users. Only disabled roles can be enabled. System roles are always enabled by default.",
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Enables a role by its ID, making it available for assignment to users. Only disabled custom roles can be enabled. System/default roles are always enabled.",
                 "consumes": [
                     "application/json"
                 ],
@@ -421,6 +512,18 @@ const docTemplate = `{
                             "$ref": "#/definitions/models.BadRequestResponse"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden. This occurs if trying to modify a system/default role.",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found. This occurs if no role exists with the provided ID.",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
                     "409": {
                         "description": "Conflict. This occurs if the role is already enabled.",
                         "schema": {
@@ -443,7 +546,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Retrieves all routes and permissions associated with a specific role by role ID. This is useful for role management and permission auditing. Returns detailed permission structure including HTTP methods and route information.",
+                "description": "Retrieves all routes and permissions associated with a specific role by role ID. Returns detailed permission structure classified by HTTP methods (GET, POST, PUT, DELETE, etc.), route information, role details, and processing timestamp. Supports both custom and system roles.",
                 "consumes": [
                     "application/json"
                 ],
@@ -457,7 +560,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Role ID to retrieve permissions for. Must be a valid UUID format.",
+                        "description": "Role ID to retrieve permissions for. Must be a valid UUID format. Supports both custom and system role IDs.",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -465,7 +568,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Role permissions retrieved successfully. Data contains the detailed permission structure.",
+                        "description": "Role permissions retrieved successfully. Data contains Routes (classified by method), RoutesJSON (formatted JSON string), RoleInfo, and ProcessedAt timestamp.",
                         "schema": {
                             "$ref": "#/definitions/models.ServiceResponse"
                         }
@@ -476,6 +579,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/models.BadRequestResponse"
                         }
                     },
+                    "404": {
+                        "description": "Not Found. This occurs if no role exists with the provided ID.",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal server error. This occurs if there is an unexpected error while retrieving role permissions.",
                         "schema": {
@@ -483,16 +592,90 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Adds or removes permissions from a role. Requires role name (role field), and lists of permissions to add (add_permissions) or remove (remove_permissions). Each permission includes route, methods array, and description.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Roles"
+                ],
+                "summary": "Update role permissions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Role ID to update permissions for. Must be a valid UUID format.",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update Role Permissions Request. Requires 'role', 'add_permissions', and 'remove_permissions'.",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdateRolePermissions"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Role permissions updated successfully.",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request. This occurs if required fields are missing or invalid.",
+                        "schema": {
+                            "$ref": "#/definitions/models.BadRequestResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found. This occurs if the role with the specified name doesn't exist.",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict. This occurs if trying to modify a default/system role.",
+                        "schema": {
+                            "$ref": "#/definitions/models.ConflictResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity. This occurs if the request body cannot be parsed.",
+                        "schema": {
+                            "$ref": "#/definitions/models.StatusUnprocessableEntityResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error. This occurs if there is an unexpected error while updating permissions.",
+                        "schema": {
+                            "$ref": "#/definitions/models.InternalServerErrorResponse"
+                        }
+                    }
+                }
             }
         },
-        "/user/details": {
+        "/user/me": {
             "get": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Returns the details of the user currently authenticated via the API key or token. This endpoint is useful for profile pages or user dashboards.",
+                "description": "Returns the details (name, email, roles) of the user currently authenticated via JWT token. Extracted from token claims. Returns 404 if user not found.",
                 "produces": [
                     "application/json"
                 ],
@@ -502,15 +685,33 @@ const docTemplate = `{
                 "summary": "Get Authenticated User Details",
                 "responses": {
                     "200": {
-                        "description": "User details successfully retrieved",
+                        "description": "User details successfully retrieved with name, email, and roles array",
                         "schema": {
-                            "$ref": "#/definitions/models.ServiceResponse"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/models.ServiceResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.UserDetailsResponse"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "401": {
-                        "description": "Unauthorized, invalid or missing authentication",
+                        "description": "Unauthorized, invalid or missing JWT authentication",
                         "schema": {
                             "$ref": "#/definitions/models.UnauthorizedResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found in the system",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
                         }
                     },
                     "500": {
@@ -527,7 +728,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Allows the authenticated user to update their profile information such as name, email, or other editable fields. Requires authentication.",
+                "description": "Allows the authenticated user to update their profile information (name, email, or password). At least one field must be provided. User ID extracted from JWT token.",
                 "consumes": [
                     "application/json"
                 ],
@@ -540,7 +741,7 @@ const docTemplate = `{
                 "summary": "Update Authenticated User Details",
                 "parameters": [
                     {
-                        "description": "Fields to update for the user profile",
+                        "description": "Fields to update (email, name, password). At least one field required. All fields are optional pointers.",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -557,19 +758,25 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad request, missing required fields",
+                        "description": "Bad request, no fields provided for update",
                         "schema": {
                             "$ref": "#/definitions/models.BadRequestResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized, invalid or missing authentication",
+                        "description": "Unauthorized, invalid or missing JWT authentication",
                         "schema": {
                             "$ref": "#/definitions/models.UnauthorizedResponse"
                         }
                     },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
                     "422": {
-                        "description": "Unprocessable entity, invalid input",
+                        "description": "Unprocessable entity, invalid JSON format",
                         "schema": {
                             "$ref": "#/definitions/models.StatusUnprocessableEntityResponse"
                         }
@@ -583,9 +790,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/user/password/reset": {
+        "/user/resetpassword": {
             "post": {
-                "description": "Initiates the password reset process for a user by sending a reset link or OTP to the user's email.",
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Initiates password reset by creating a reset token valid for 15 minutes. Returns OTP/token in response (should be sent via email in production). User must exist in the authenticated tenant.",
                 "consumes": [
                     "application/json"
                 ],
@@ -598,7 +810,7 @@ const docTemplate = `{
                 "summary": "Reset User Password",
                 "parameters": [
                     {
-                        "description": "Password reset request details",
+                        "description": "Password reset request with 'email' field",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -609,25 +821,25 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Password reset initiated successfully",
+                        "description": "Password reset token generated successfully. Response contains OTP in message field.",
                         "schema": {
                             "$ref": "#/definitions/models.ServiceResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad request, missing required fields",
+                        "description": "Bad request, email field is required or user not found with provided email",
                         "schema": {
                             "$ref": "#/definitions/models.BadRequestResponse"
                         }
                     },
                     "422": {
-                        "description": "Unprocessable entity, invalid input",
+                        "description": "Unprocessable entity, invalid JSON format",
                         "schema": {
                             "$ref": "#/definitions/models.StatusUnprocessableEntityResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal server error",
+                        "description": "Internal server error during token generation",
                         "schema": {
                             "$ref": "#/definitions/models.InternalServerErrorResponse"
                         }
@@ -635,9 +847,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/user/password/set": {
-            "post": {
-                "description": "Sets a new password for the user after verifying the OTP sent to their email. Requires email, OTP, new password, and confirmation.",
+        "/user/setpassword": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Sets a new password after verifying OTP token. Requires email, OTP (from reset request), new_password, and confirm_password. Passwords must match. OTP expires after 15 minutes.",
                 "consumes": [
                     "application/json"
                 ],
@@ -650,7 +867,7 @@ const docTemplate = `{
                 "summary": "Set New User Password",
                 "parameters": [
                     {
-                        "description": "OTP verification and new password details",
+                        "description": "OTP verification with fields: email, otp, new_password, confirm_password (all required)",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -667,83 +884,31 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad request, missing required fields",
+                        "description": "Bad request, missing required fields (email, otp, new_password, or confirm_password)",
                         "schema": {
                             "$ref": "#/definitions/models.BadRequestResponse"
                         }
                     },
-                    "409": {
-                        "description": "Conflict, password confirmation failed",
-                        "schema": {
-                            "$ref": "#/definitions/models.ConflictResponse"
-                        }
-                    },
-                    "422": {
-                        "description": "Unprocessable entity, invalid input",
-                        "schema": {
-                            "$ref": "#/definitions/models.StatusUnprocessableEntityResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/models.InternalServerErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/user/register": {
-            "post": {
-                "description": "Registers a new user in the system under a specific tenant. This endpoint is typically used for onboarding new users. Requires all mandatory fields such as name, email, and password.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "User"
-                ],
-                "summary": "Register New User",
-                "parameters": [
-                    {
-                        "description": "User registration details including name, email, and password",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/models.UserRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "User registered successfully",
+                    "404": {
+                        "description": "User not found with provided email",
                         "schema": {
                             "$ref": "#/definitions/models.ServiceResponse"
                         }
                     },
-                    "400": {
-                        "description": "Bad request, missing required fields",
-                        "schema": {
-                            "$ref": "#/definitions/models.BadRequestResponse"
-                        }
-                    },
                     "409": {
-                        "description": "Conflict, user already exists",
+                        "description": "Conflict, passwords don't match or OTP expired/invalid",
                         "schema": {
                             "$ref": "#/definitions/models.ConflictResponse"
                         }
                     },
                     "422": {
-                        "description": "Unprocessable entity, invalid input",
+                        "description": "Unprocessable entity, invalid JSON format",
                         "schema": {
                             "$ref": "#/definitions/models.StatusUnprocessableEntityResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal server error",
+                        "description": "Internal server error during password update",
                         "schema": {
                             "$ref": "#/definitions/models.InternalServerErrorResponse"
                         }
@@ -803,7 +968,12 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a user from the system using their unique identifier",
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Permanently deletes a user from the system using their unique identifier (UUID). User must belong to the authenticated tenant. Cannot be undone.",
                 "consumes": [
                     "application/json"
                 ],
@@ -818,7 +988,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "uuid",
-                        "description": "User ID",
+                        "description": "User ID (UUID format)",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -826,25 +996,31 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "User successfully deleted",
+                        "description": "User successfully deleted with confirmation message",
                         "schema": {
                             "$ref": "#/definitions/models.ServiceResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad request, missing required fields",
+                        "description": "Bad request, 'id' path parameter is missing or empty",
                         "schema": {
                             "$ref": "#/definitions/models.BadRequestResponse"
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized, invalid or missing authentication",
+                        "schema": {
+                            "$ref": "#/definitions/models.UnauthorizedResponse"
+                        }
+                    },
                     "404": {
-                        "description": "User not found",
+                        "description": "User not found with provided ID in the authenticated tenant",
                         "schema": {
                             "$ref": "#/definitions/models.ServiceResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal server error",
+                        "description": "Internal server error during deletion",
                         "schema": {
                             "$ref": "#/definitions/models.InternalServerErrorResponse"
                         }
@@ -852,14 +1028,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/user/{id}/role": {
-            "post": {
+        "/user/{id}/roles": {
+            "put": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Assigns a specific role to a user identified by their user ID. Only users with sufficient privileges (e.g., admins) can perform this action.",
+                "description": "Assigns a specific role (role name as string) to a user identified by their user ID. Role must exist in the system. Only users with admin privileges can perform this action.",
                 "consumes": [
                     "application/json"
                 ],
@@ -873,13 +1049,13 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Unique identifier of the user to assign a role",
+                        "description": "Unique identifier (UUID) of the user to assign a role",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "Role assignment details",
+                        "description": "Role assignment details with 'role' field (role name string)",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -896,7 +1072,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad request, missing required fields",
+                        "description": "Bad request, 'role' field is required and cannot be empty",
                         "schema": {
                             "$ref": "#/definitions/models.BadRequestResponse"
                         }
@@ -914,7 +1090,7 @@ const docTemplate = `{
                         }
                     },
                     "422": {
-                        "description": "Unprocessable entity, invalid input",
+                        "description": "Unprocessable entity, invalid JSON format",
                         "schema": {
                             "$ref": "#/definitions/models.StatusUnprocessableEntityResponse"
                         }
@@ -935,7 +1111,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Fetches a paginated list of all users in the system. This endpoint is typically used by admins to view and manage users. Returns user details with pagination support.",
+                "description": "Fetches a list of all users for the authenticated tenant. Returns user details including id, email, name, created_at (RFC3339), and roles array. Client-side pagination applied (page 1, size 5).",
                 "produces": [
                     "application/json"
                 ],
@@ -945,7 +1121,7 @@ const docTemplate = `{
                 "summary": "List All Users",
                 "responses": {
                     "200": {
-                        "description": "Users list successfully retrieved with pagination",
+                        "description": "Users list successfully retrieved with client-side pagination metadata",
                         "schema": {
                             "$ref": "#/definitions/models.ServiceResponse"
                         }
@@ -956,8 +1132,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/models.UnauthorizedResponse"
                         }
                     },
+                    "404": {
+                        "description": "No users found for the authenticated tenant",
+                        "schema": {
+                            "$ref": "#/definitions/models.ServiceResponse"
+                        }
+                    },
                     "500": {
-                        "description": "Internal server error",
+                        "description": "Internal server error during user retrieval",
                         "schema": {
                             "$ref": "#/definitions/models.InternalServerErrorResponse"
                         }
@@ -972,7 +1154,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Disables a user account, preventing them from accessing the system. Only users with sufficient privileges can perform this action.",
+                "description": "Disables a user account, preventing them from accessing the system. Returns 400 if user is already disabled. User must belong to the authenticated tenant. Existing sessions remain valid until expiry.",
                 "produces": [
                     "application/json"
                 ],
@@ -984,7 +1166,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "uuid",
-                        "description": "Unique identifier of the user to disable",
+                        "description": "Unique identifier (UUID) of the user to disable",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -992,13 +1174,13 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "User account disabled successfully",
+                        "description": "User account disabled successfully with confirmation message",
                         "schema": {
                             "$ref": "#/definitions/models.ServiceResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad request, missing required fields",
+                        "description": "Bad request, 'id' is missing/empty OR user is already disabled",
                         "schema": {
                             "$ref": "#/definitions/models.BadRequestResponse"
                         }
@@ -1010,13 +1192,13 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "User not found",
+                        "description": "User not found with provided ID in the authenticated tenant",
                         "schema": {
                             "$ref": "#/definitions/models.ServiceResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal server error",
+                        "description": "Internal server error during status update",
                         "schema": {
                             "$ref": "#/definitions/models.InternalServerErrorResponse"
                         }
@@ -1031,7 +1213,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Enables a previously disabled user account, allowing them to access the system again. Only users with sufficient privileges can perform this action.",
+                "description": "Enables a previously disabled user account, allowing them to access the system again. Returns 400 if user is already enabled. User must belong to the authenticated tenant.",
                 "produces": [
                     "application/json"
                 ],
@@ -1043,7 +1225,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "uuid",
-                        "description": "Unique identifier of the user to enable",
+                        "description": "Unique identifier (UUID) of the user to enable",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -1051,13 +1233,13 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "User account enabled successfully",
+                        "description": "User account enabled successfully with confirmation message",
                         "schema": {
                             "$ref": "#/definitions/models.ServiceResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad request, missing required fields",
+                        "description": "Bad request, 'id' is missing/empty OR user is already enabled",
                         "schema": {
                             "$ref": "#/definitions/models.BadRequestResponse"
                         }
@@ -1069,13 +1251,13 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "User not found",
+                        "description": "User not found with provided ID in the authenticated tenant",
                         "schema": {
                             "$ref": "#/definitions/models.ServiceResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal server error",
+                        "description": "Internal server error during status update",
                         "schema": {
                             "$ref": "#/definitions/models.InternalServerErrorResponse"
                         }
@@ -1251,6 +1433,23 @@ const docTemplate = `{
                 }
             }
         },
+        "models.UserDetailsResponse": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "models.UserLoginRequest": {
             "type": "object",
             "properties": {
@@ -1292,17 +1491,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "otp": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.VerifyRoleRequest": {
-            "type": "object",
-            "properties": {
-                "role_id": {
-                    "type": "string"
-                },
-                "role_name": {
                     "type": "string"
                 }
             }

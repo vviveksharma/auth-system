@@ -22,6 +22,7 @@ type SharedRepoInterface interface {
 	CreateCustomRole(req *reqmodels.CreateCustomRole, tenantId uuid.UUID) error
 	UpdateCustomRole(roleId uuid.UUID, tenantId uuid.UUID, addPermissions []reqmodels.Permission, removePermissions []reqmodels.Permission) error
 	DeleteCustomRole(roleId uuid.UUID, tenantId uuid.UUID) error
+	DeleteUser(userId uuid.UUID, tenantId uuid.UUID) error
 }
 
 func NewSharedRepository(db *gorm.DB) (SharedRepoInterface, error) {
@@ -49,11 +50,13 @@ func (s *SharedRepo) CreateCustomRole(req *reqmodels.CreateCustomRole, tenantId 
 	roleId := uuid.New()
 	// Create a role
 	err := s.RoleRepo.CreateRole(&models.DBRoles{
-		Role:     req.Name,
-		TenantId: tenantId,
-		RoleId:   roleId,
-		RoleType: "custom",
-		Status:   true,
+		Role:        req.Name,
+		DisplayName: req.DisplayName,
+		Description: req.Description,
+		TenantId:    tenantId,
+		RoleId:      roleId,
+		RoleType:    "custom",
+		Status:      true,
 	})
 	if err != nil {
 		return fmt.Errorf("error while creating a entry in the role database while creating the custom role: %s", err.Error())
@@ -155,14 +158,14 @@ func (s *SharedRepo) DeleteCustomRole(roleId uuid.UUID, tenantId uuid.UUID) erro
 		return transaction.Error
 	}
 	defer transaction.Rollback()
-	role := transaction.Model(models.DBRoles{}).Where("role_id = ? AND tenant_id = ? ", roleId, tenantId).Delete(models.DBRoles{
+	role := transaction.Unscoped().Where("role_id = ? AND tenant_id = ? ", roleId, tenantId).Delete(models.DBRoles{
 		RoleId:   roleId,
 		TenantId: tenantId,
 	})
 	if role.Error != nil {
 		return role.Error
 	}
-	route := transaction.Model(models.DBRouteRole{}).Where("role_id = ? AND tenant_id = ?", roleId, tenantId).Delete(models.DBRouteRole{
+	route := transaction.Unscoped().Where("role_id = ? AND tenant_id = ?", roleId, tenantId).Delete(models.DBRouteRole{
 		RoleId:   roleId,
 		TenantId: tenantId,
 	})
@@ -170,6 +173,51 @@ func (s *SharedRepo) DeleteCustomRole(roleId uuid.UUID, tenantId uuid.UUID) erro
 		return route.Error
 	}
 	transaction.Commit()
+	return nil
+}
+
+func (s *SharedRepo) DeleteUser(userId uuid.UUID, tenantId uuid.UUID) error {
+	transaction := s.DB.Begin()
+	if transaction.Error != nil {
+		fmt.Printf("Failed to begin transaction: %v\n", transaction.Error)
+		return transaction.Error
+	}
+	defer transaction.Rollback()
+
+	resetErr := transaction.Where("user_id = ?", userId).Delete(&models.DBResetToken{})
+	if resetErr.Error != nil {
+		fmt.Printf("Error deleting reset tokens: %v\n", resetErr.Error)
+		return resetErr.Error
+	}
+	fmt.Printf("Deleted %d reset tokens for user %s\n", resetErr.RowsAffected, userId)
+
+	// Step 2: Delete login records for this user
+	loginErr := transaction.Where("user_id = ?", userId).Delete(&models.DBLogin{})
+	if loginErr.Error != nil {
+		fmt.Printf("Error deleting login records: %v\n", loginErr.Error)
+		return loginErr.Error
+	}
+	fmt.Printf("Deleted %d login records for user %s\n", loginErr.RowsAffected, userId)
+
+	// Step 3: Delete the user
+	userErr := transaction.Where("user_id = ? AND tenant_id = ?", userId, tenantId).Delete(&models.DBUser{})
+	if userErr.Error != nil {
+		fmt.Printf("Error deleting user: %v\n", userErr.Error)
+		return userErr.Error
+	}
+
+	if userErr.RowsAffected == 0 {
+		return fmt.Errorf("user not found with id %s in tenant %s", userId, tenantId)
+	}
+
+	fmt.Printf("Successfully deleted user %s from tenant %s\n", userId, tenantId)
+
+	// Commit transaction
+	if err := transaction.Commit().Error; err != nil {
+		fmt.Printf("Error committing transaction: %v\n", err)
+		return err
+	}
+
 	return nil
 }
 

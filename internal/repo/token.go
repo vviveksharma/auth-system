@@ -19,8 +19,7 @@ type TokenRepositoryInterface interface {
 	GetTenantUsingToken(token string) (*uuid.UUID, error)
 	RevokeToken(token string) error
 	VerifyToken(token string) (bool, string, error)
-	GetTokenDetailsByName(name string) (*models.DBToken, error)
-	GetTokenDetails(conditions *models.DBToken) (*models.DBToken, error)
+	GetTokenDetails(conditions models.DBToken) (*models.DBToken, error)
 	VerifyApplicationToken(token string) (bool, string, error)
 	GetTokenDetailsStatus(status string, tenantId uuid.UUID, page, pageSize int) ([]*models.DBToken, int64, error)
 }
@@ -195,13 +194,14 @@ func (to *TokenRepository) VerifyToken(token string) (bool, string, error) {
 		return false, "", transaction.Error
 	}
 	defer transaction.Rollback()
+	log.Println("the verify token: ", token)
 	var tokenDetails models.DBToken
 	tokenErr := transaction.Model(&models.DBToken{}).Where("id = ?", uuid.MustParse(token)).First(&tokenDetails)
 	if tokenErr.Error != nil {
-		if tokenErr.Error.Error() == "record not found" {
+		if errors.Is(tokenErr.Error, gorm.ErrRecordNotFound) {
 			return false, "", errors.New("record not found")
 		} else {
-			return false, "", transaction.Error
+			return false, "", tokenErr.Error
 		}
 	}
 	log.Println("the token details: ", tokenDetails)
@@ -223,28 +223,14 @@ func (to *TokenRepository) VerifyToken(token string) (bool, string, error) {
 	}
 	if tokenDetails.ApplicationKey {
 		return false, "", &models.ServiceResponse{
-			Code:    423,
+			Code:    409,
 			Message: "cant use application key as tenant login token",
 		}
 	}
 	return true, tokenDetails.TenantId.String(), nil
 }
 
-func (to *TokenRepository) GetTokenDetailsByName(name string) (*models.DBToken, error) {
-	transaction := to.DB.Begin()
-	if transaction.Error != nil {
-		return nil, transaction.Error
-	}
-	defer transaction.Rollback()
-	var tokenDetails *models.DBToken
-	err := transaction.Model(&models.DBToken{}).Where("name = ?", name).First(&tokenDetails)
-	if err.Error != nil {
-		return nil, err.Error
-	}
-	return tokenDetails, nil
-}
-
-func (to *TokenRepository) GetTokenDetails(conditions *models.DBToken) (*models.DBToken, error) {
+func (to *TokenRepository) GetTokenDetails(conditions models.DBToken) (*models.DBToken, error) {
 	transaction := to.DB.Begin()
 	if transaction.Error != nil {
 		return nil, transaction.Error
@@ -293,7 +279,7 @@ func (to *TokenRepository) VerifyApplicationToken(token string) (bool, string, e
 	}
 	if !tokenDetails.ApplicationKey {
 		return false, "", &models.ServiceResponse{
-			Code:    423,
+			Code:    409,
 			Message: "cant use login token as the application key",
 		}
 	}

@@ -56,26 +56,6 @@ func (t *TenantRepository) GetUserByEmail(email string) (tenantDetails *models.D
 	return tenantDetails, nil
 }
 
-func (t *TenantRepository) VerifyTenant(tenantId string) (bool, error) {
-	transaction := t.DB.Begin()
-	if transaction.Error != nil {
-		return false, transaction.Error
-	}
-	defer transaction.Rollback()
-	var tenantDetails models.DBTenant
-	findErr := transaction.Model(models.DBTenant{}).Where("id = ?", uuid.MustParse(tenantId)).First(&tenantDetails)
-	if findErr.Error != nil {
-		return false, findErr.Error
-	}
-	if tenantDetails.Id == uuid.MustParse(tenantId) {
-		return true, nil
-	}
-	return false, &models.ServiceResponse{
-		Code:    400,
-		Message: "no tenant found with this id",
-	}
-}
-
 func (t *TenantRepository) UpdateTenatDetailsPassword(tenantId string, password string) error {
 	transaction := t.DB.Begin()
 	if transaction.Error != nil {
@@ -161,7 +141,15 @@ func (t *TenantRepository) DeleteTenant(tenantId uuid.UUID) error {
 	}
 	log.Printf("Deleted %d roles", deleteRoles.RowsAffected)
 
-	// Step 6: Delete all users associated with this tenant
+	// Step 6: Delete all the users login details associated to the tenant
+	deleteUserLogin := transaction.Where("tenant_id = ?", tenantId).Delete(&models.DBLogin{})
+	if deleteUserLogin.Error != nil {
+		log.Printf("Error deleting user login details: %v", deleteUserLogin.Error)
+		return fmt.Errorf("failed to delete user login details: %w", deleteUserLogin.Error)
+	}
+	log.Printf("Deleted %d userlogin details", deleteUserLogin.RowsAffected)
+
+	// Step 7: Delete all users associated with this tenant
 	log.Printf("Deleting users for tenant: %s", tenantId)
 	deleteUsers := transaction.Where("tenant_id = ?", tenantId).Delete(&models.DBUser{})
 	if deleteUsers.Error != nil {
@@ -170,7 +158,7 @@ func (t *TenantRepository) DeleteTenant(tenantId uuid.UUID) error {
 	}
 	log.Printf("Deleted %d users", deleteUsers.RowsAffected)
 
-	// Step 7: Delete password reset tokens associated with this tenant
+	// Step 8: Delete password reset tokens associated with this tenant
 	log.Printf("Deleting reset tokens for tenant: %s", tenantId)
 	deleteResetTokens := transaction.Where("tenant_id = ?", tenantId).Delete(&models.DBResetToken{})
 	if deleteResetTokens.Error != nil {
@@ -179,7 +167,7 @@ func (t *TenantRepository) DeleteTenant(tenantId uuid.UUID) error {
 	}
 	log.Printf("Deleted %d reset tokens", deleteResetTokens.RowsAffected)
 
-	// Step 8: Finally, delete the tenant itself
+	// Step 9: Finally, delete the tenant itself
 	log.Printf("Deleting tenant: %s", tenantId)
 	deleteTenant := transaction.Where("id = ?", tenantId).Delete(&models.DBTenant{})
 	if deleteTenant.Error != nil {

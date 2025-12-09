@@ -1,4 +1,4 @@
-package services
+package tenantservices
 
 import (
 	"context"
@@ -12,23 +12,24 @@ import (
 	"github.com/vviveksharma/auth/internal/pagination"
 	"github.com/vviveksharma/auth/internal/repo"
 	"github.com/vviveksharma/auth/internal/utils"
+	responsemodels "github.com/vviveksharma/auth/internal/dto/tenant/responses"
+	reqmodels "github.com/vviveksharma/auth/internal/dto/tenant/requests"
 	dbmodels "github.com/vviveksharma/auth/models"
 	smtpservice "github.com/vviveksharma/auth/smtp-service"
 )
 
-type TenantService interface {
-	CreateTenant(req *models.CreateTenantRequest) (resp *models.CreateTenantResponse, err error)
-	LoginTenant(req *models.LoginTenantRequest, ip string) (resp *models.LoginTenantResponse, err error)
-	ListTokens(ctx context.Context, logintoken string) (resp []*models.ListTokensResponse, err error)
-	RevokeToken(ctx context.Context, token string) (resp *models.RevokeTokenResponse, err error)
+type ITenantService interface {
+	CreateTenant(req *reqmodels.CreateTenantRequest) (resp *responsemodels.CreateTenantResponse, err error)
+	LoginTenant(req *reqmodels.LoginTenantRequest, ip string) (resp *responsemodels.LoginTenantResponse, err error)
+	ListTokens(ctx context.Context) (resp []*models.ListTokensResponse, err error)
+	RevokeToken(ctx context.Context, token string) (resp *responsemodels.RevokeTokenResponse, err error)
 	CreateToken(ctx context.Context, req *models.CreateTokenRequest) (*models.CreateTokenResponse, error)
 	ResetPassword(ctx context.Context, req *models.ResetTenantPasswordRequest) (*models.ResetPasswordTenantResponse, error)
 	SetPassword(ctx context.Context, req *models.SetTenantPasswordRequest) (*models.SetTenantPasswordResponse, error)
-	ListUsers(ctx context.Context, page int, pageSize int, status string) (resp *pagination.PaginatedResponse[*models.ListUserTenant], err error)
-	GetTenantDetails(ctx context.Context) (resp *models.GetTenantDetails, err error)
-	DeleteTenant(ctx context.Context) (resp *models.DeleteTenantResponse, err error)
+	GetTenantDetails(ctx context.Context) (resp *responsemodels.GetTenantDetails, err error)
+	DeleteTenant(ctx context.Context) (resp *responsemodels.DeleteTenantResponse, err error)
 	ListTokensWithStatus(ctx context.Context, page int, pageSize int, status string) (resp *pagination.PaginatedResponse[*models.GetListTokenWithStatus], err error)
-	GetDashboardDetails(ctx context.Context) (resp *models.DashboardTenantResponse, err error)
+	GetDashboardDetails(ctx context.Context) (resp *responsemodels.DashboardTenantResponse, err error)
 }
 
 type Tenant struct {
@@ -41,7 +42,7 @@ type Tenant struct {
 	EmailService    smtpservice.MailServiceInterface
 }
 
-func NewTenantService() (TenantService, error) {
+func NewTenantService() (ITenantService, error) {
 	ser := &Tenant{}
 	err := ser.SetupRepo()
 	if err != nil {
@@ -87,7 +88,7 @@ func (t *Tenant) SetupRepo() error {
 	return nil
 }
 
-func (t *Tenant) CreateTenant(req *models.CreateTenantRequest) (resp *models.CreateTenantResponse, err error) {
+func (t *Tenant) CreateTenant(req *reqmodels.CreateTenantRequest) (resp *responsemodels.CreateTenantResponse, err error) {
 	_, err = t.TenantRepo.GetUserByEmail(req.Email)
 	if err != nil && err.Error() != "record not found" {
 		return nil, &dbmodels.ServiceResponse{
@@ -121,7 +122,7 @@ func (t *Tenant) CreateTenant(req *models.CreateTenantRequest) (resp *models.Cre
 	}, nil
 }
 
-func (t *Tenant) LoginTenant(req *models.LoginTenantRequest, ip string) (resp *models.LoginTenantResponse, err error) {
+func (t *Tenant) LoginTenant(req *reqmodels.LoginTenantRequest, ip string) (resp *responsemodels.LoginTenantResponse, err error) {
 	tenantDetails, err := t.TenantRepo.GetUserByEmail(req.Email)
 	if err != nil {
 		if err.Error() == "record not found" {
@@ -206,7 +207,7 @@ func (t *Tenant) LoginTenant(req *models.LoginTenantRequest, ip string) (resp *m
 			}
 		}
 		// giving the login token as respose to be used further
-		tokenDetails, err := t.TokenRepo.GetTokenDetailsByName(tokenName)
+		tokenDetails, err := t.TokenRepo.GetTokenDetails(dbmodels.DBToken{Name: tokenName})
 		if err != nil {
 			if err.Error() == "record not found" {
 				return nil, &dbmodels.ServiceResponse{
@@ -237,15 +238,9 @@ func (t *Tenant) LoginTenant(req *models.LoginTenantRequest, ip string) (resp *m
 	}, nil
 }
 
-func (t *Tenant) ListTokens(ctx context.Context, logintoken string) (resp []*models.ListTokensResponse, err error) {
-	tenantId, err := t.TokenRepo.GetTenantUsingToken(logintoken)
-	if err != nil {
-		return nil, &dbmodels.ServiceResponse{
-			Code:    500,
-			Message: "error while fetching the tenant details: " + err.Error(),
-		}
-	}
-	dbTokens, err := t.TokenRepo.ListTokens(*tenantId)
+func (t *Tenant) ListTokens(ctx context.Context) (resp []*models.ListTokensResponse, err error) {
+	tenantId := ctx.Value("tenant_id").(string)
+	dbTokens, err := t.TokenRepo.ListTokens(uuid.MustParse(tenantId))
 	if err != nil {
 		return nil, &dbmodels.ServiceResponse{
 			Code:    500,
@@ -267,8 +262,8 @@ func (t *Tenant) ListTokens(ctx context.Context, logintoken string) (resp []*mod
 	return resp, nil
 }
 
-func (t *Tenant) RevokeToken(ctx context.Context, tokenId string) (resp *models.RevokeTokenResponse, err error) {
-	tokenDetails, err := t.TokenRepo.GetTokenDetails(&dbmodels.DBToken{
+func (t *Tenant) RevokeToken(ctx context.Context, tokenId string) (resp *responsemodels.RevokeTokenResponse, err error) {
+	tokenDetails, err := t.TokenRepo.GetTokenDetails(dbmodels.DBToken{
 		Id: uuid.MustParse(tokenId),
 	})
 	if err != nil {
@@ -286,7 +281,7 @@ func (t *Tenant) RevokeToken(ctx context.Context, tokenId string) (resp *models.
 	}
 	if !tokenDetails.IsActive {
 		return nil, &dbmodels.ServiceResponse{
-			Code:    423,
+			Code:    409,
 			Message: "Token is already inactive",
 		}
 	}
@@ -304,7 +299,7 @@ func (t *Tenant) RevokeToken(ctx context.Context, tokenId string) (resp *models.
 
 func (t *Tenant) CreateToken(ctx context.Context, req *models.CreateTokenRequest) (*models.CreateTokenResponse, error) {
 	tenantId := ctx.Value("tenant_id").(string)
-	tokendata, err := t.TokenRepo.GetTokenDetailsByName(req.Name)
+	tokendata, err := t.TokenRepo.GetTokenDetails(dbmodels.DBToken{Name: req.Name})
 	if err != nil {
 		if err.Error() != "record not found" {
 			return nil, &dbmodels.ServiceResponse{
@@ -316,14 +311,14 @@ func (t *Tenant) CreateToken(ctx context.Context, req *models.CreateTokenRequest
 	log.Println("the token data: ", tokendata)
 	if tokendata != nil && tokendata.Name == req.Name {
 		return nil, &dbmodels.ServiceResponse{
-			Code:    423,
+			Code:    409,
 			Message: "record already exists please try with another name",
 		}
 	}
 	parsedExpiry, parseErr := time.Parse("2006-01-02", req.ExpiryAt)
 	if parseErr != nil {
 		return nil, &dbmodels.ServiceResponse{
-			Code:    400,
+			Code:    422,
 			Message: "Invalid expiry date format. Please use YYYY-MM-DD.",
 		}
 	}
@@ -404,7 +399,7 @@ func (t *Tenant) SetPassword(ctx context.Context, req *models.SetTenantPasswordR
 	// Ensure the new password is different from the old password
 	if hashedPassword == tenantDetails.Password {
 		return nil, &dbmodels.ServiceResponse{
-			Code:    423,
+			Code:    409,
 			Message: "The new password cannot be the same as the current password.",
 		}
 	}
@@ -421,69 +416,7 @@ func (t *Tenant) SetPassword(ctx context.Context, req *models.SetTenantPasswordR
 	}, nil
 }
 
-func (t *Tenant) ListUsers(ctx context.Context, page int, pageSize int, status string) (resp *pagination.PaginatedResponse[*models.ListUserTenant], err error) {
-	tenantId := ctx.Value("tenant_id").(string)
-	fmt.Println(tenantId)
-	userDetails, totalCount, err := t.TenantRepo.ListUserPaginated(uuid.MustParse(tenantId), page, pageSize, status)
-	if err != nil {
-		return nil, &dbmodels.ServiceResponse{
-			Code:    500,
-			Message: "error while fetching user data for the particular tenant: " + err.Error(),
-		}
-	}
-
-	loginDetails, err := t.UserLoginRepo.GetUsers(uuid.MustParse(tenantId))
-	if err != nil {
-		return nil, &dbmodels.ServiceResponse{
-			Code:    500,
-			Message: "error while fetching login data for the particular tenant: " + err.Error(),
-		}
-	}
-
-	loginMap := make(map[uuid.UUID]*dbmodels.DBLogin)
-	for _, login := range loginDetails {
-		loginMap[login.UserId] = login
-	}
-
-	var user []*models.ListUserTenant
-	for _, userDetail := range userDetails {
-		resp := &models.ListUserTenant{
-			Email:     userDetail.Email,
-			Name:      userDetail.Name,
-			CreatedAt: userDetail.CreatedAt.String(),
-			Role:      userDetail.Roles,
-		}
-		if _, exists := loginMap[userDetail.Id]; exists {
-			resp.LogginStatus = true
-		} else {
-			resp.LogginStatus = false
-		}
-
-		user = append(user, resp)
-	}
-
-	totalPages := int64(0)
-	if pageSize > 0 {
-		totalPages = (totalCount + int64(pageSize) - 1) / int64(pageSize)
-	}
-
-	hasNext := int64(page) < totalPages
-	hasPrev := page > 1
-	paginatedResponse := &pagination.PaginatedResponse[*models.ListUserTenant]{
-		Data: user,
-		Pagination: pagination.PaginationMeta{
-			Page:       page,
-			PageSize:   pageSize,
-			TotalPages: int(totalPages),
-			TotalItems: int(totalCount),
-			HasNext:    hasNext,
-			HasPrev:    hasPrev,
-		},
-	}
-	return paginatedResponse, nil
-}
-
-func (t *Tenant) GetTenantDetails(ctx context.Context) (resp *models.GetTenantDetails, err error) {
+func (t *Tenant) GetTenantDetails(ctx context.Context) (resp *responsemodels.GetTenantDetails, err error) {
 	tenantId := ctx.Value("tenant_id").(string)
 	tenantDetails, err := t.TenantRepo.GetTenantDetails(&dbmodels.DBTenant{
 		Id: uuid.MustParse(tenantId),
@@ -508,7 +441,7 @@ func (t *Tenant) GetTenantDetails(ctx context.Context) (resp *models.GetTenantDe
 	}, nil
 }
 
-func (t *Tenant) DeleteTenant(ctx context.Context) (resp *models.DeleteTenantResponse, err error) {
+func (t *Tenant) DeleteTenant(ctx context.Context) (resp *responsemodels.DeleteTenantResponse, err error) {
 	// deleting the tenant
 	tenantId := ctx.Value("tenant_id").(string)
 	log.Printf("Attempting to delete tenant with ID: %s", tenantId)
@@ -536,9 +469,9 @@ func (t *Tenant) DeleteTenant(ctx context.Context) (resp *models.DeleteTenantRes
 	}, nil
 }
 
-func (t *Tenant) GetDashboardDetails(ctx context.Context) (resp *models.DashboardTenantResponse, err error) {
+func (t *Tenant) GetDashboardDetails(ctx context.Context) (resp *responsemodels.DashboardTenantResponse, err error) {
 	tenantId := ctx.Value("tenant_id").(string)
-	userDetails, err := t.UserRepo.ListUsers(uuid.MustParse(tenantId))
+	userDetails, _, err := t.UserRepo.ListUsersPaginated(1, 1000, uuid.MustParse(tenantId), "enabled")
 	if err != nil {
 		if err.Error() == "record not found" {
 			log.Printf("Delete failed: tenant not found for ID: %s", tenantId)

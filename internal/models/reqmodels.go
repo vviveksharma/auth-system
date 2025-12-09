@@ -86,3 +86,12 @@ type UserVerifyOTPRequest struct {
 	NewPassword     string `json:"new_password"`
 	ConfirmPassword string `json:"confirm_password"`
 }
+
+type CreateMessageRequest struct {
+	Email         string `json:"email"`
+	RequestedRole string `json:"requested_role"`
+}
+
+type ListMessageRequest struct {
+	Email         string `json:"email"`
+}

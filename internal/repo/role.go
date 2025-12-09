@@ -12,14 +12,11 @@ type RoleRepositoryInterface interface {
 	CreateRole(req *models.DBRoles) error
 	GetAllRoles(roleTypeFlag string, tenantId uuid.UUID, page, pageSize int) ([]*models.DBRoles, int64, error)
 	FindRoleId(roleName string) (roleId uuid.UUID, err error)
-	FindByName(roleName string) (*models.DBRoles, error)
 	DeleteRole(roleId uuid.UUID) error
 	GetRolesDetails(conditions *models.DBRoles) (resp *models.DBRoles, err error)
 	ChangeStatus(flag bool, roleId uuid.UUID) error
-	GetRoleByName(roleName string, tenantId uuid.UUID) (*models.DBRoles, error)
 	GetRolesByTenant(tenantId uuid.UUID, roleType string) ([]*models.DBRoles, error)
-	GetRoleUsageCount(roleId uuid.UUID, tenantId string) (int64, error)
-	IsSystemRole(roleId uuid.UUID) (bool, error)
+	UpdateRoleDetails(req models.DBRoles, tenantId uuid.UUID) error
 }
 
 type RoleRepository struct {
@@ -116,19 +113,6 @@ func (r *RoleRepository) CreateRole(req *models.DBRoles) error {
 	return nil
 }
 
-func (r *RoleRepository) FindByName(roleName string) (resp *models.DBRoles, err error) {
-	transaction := r.DB.Begin()
-	if transaction.Error != nil {
-		return nil, transaction.Error
-	}
-	defer transaction.Rollback()
-	rr := transaction.Where("role = ?", roleName).First(&resp)
-	if rr.Error != nil {
-		return nil, rr.Error
-	}
-	return resp, nil
-}
-
 func (r *RoleRepository) DeleteRole(roleId uuid.UUID) error {
 	transaction := r.DB.Begin()
 	if transaction.Error != nil {
@@ -169,16 +153,6 @@ func (r *RoleRepository) ChangeStatus(flag bool, roleId uuid.UUID) error {
 	return nil
 }
 
-// **NEW: Additional methods for seeding**
-func (r *RoleRepository) GetRoleByName(roleName string, tenantId uuid.UUID) (*models.DBRoles, error) {
-	var role models.DBRoles
-	err := r.DB.Where("role = ? AND tenant_id = ?", roleName, tenantId).First(&role).Error
-	if err != nil {
-		return nil, err
-	}
-	return &role, nil
-}
-
 func (r *RoleRepository) GetRolesByTenant(tenantId uuid.UUID, roleType string) ([]*models.DBRoles, error) {
 	var roles []*models.DBRoles
 	query := r.DB.Where("tenant_id = ?", tenantId)
@@ -194,28 +168,53 @@ func (r *RoleRepository) GetRolesByTenant(tenantId uuid.UUID, roleType string) (
 	return roles, nil
 }
 
-func (r *RoleRepository) GetRoleUsageCount(roleId uuid.UUID, tenantId string) (int64, error) {
-	var count int64
-	// This assumes users have roles in a roles array - adjust based on your user model
-	err := r.DB.Model(&models.DBUser{}).
-		Where("tenant_id = ? AND ? = ANY(roles)", tenantId, roleId.String()).
-		Count(&count).Error
-	return count, err
-}
+func (r *RoleRepository) UpdateRoleDetails(req models.DBRoles, tenantId uuid.UUID) error {
+	fmt.Printf("UpdateRoleDetails called for roleId: %s, tenantId: %s\n", req.RoleId, tenantId)
 
-func (r *RoleRepository) IsSystemRole(roleId uuid.UUID) (bool, error) {
 	transaction := r.DB.Begin()
 	if transaction.Error != nil {
-		return false, transaction.Error
+		fmt.Printf("Error starting transaction: %v\n", transaction.Error)
+		return transaction.Error
 	}
 	defer transaction.Rollback()
-	var roleDetails models.DBRoles
-	err := transaction.Where("role_id = ? ", roleId).Find(&roleDetails)
-	if err.Error != nil {
-		return false, err.Error
+
+	var existingRole models.DBRoles
+	if err := transaction.Where("role_id = ? AND tenant_id = ?", req.RoleId, tenantId).First(&existingRole).Error; err != nil {
+		fmt.Printf("Role not found or doesn't belong to tenant: %v\n", err)
+		if err == gorm.ErrRecordNotFound {
+			return fmt.Errorf("role not found with id %s for tenant %s", req.RoleId, tenantId)
+		}
+		return fmt.Errorf("error fetching role: %w", err)
 	}
-	if roleDetails.RoleType != "default" {
-		return false, nil
+
+	updates := make(map[string]interface{})
+	if req.Role != "" {
+		updates["role"] = req.Role
 	}
-	return true, nil
+	if req.Description != "" {
+		updates["description"] = req.Description
+	}
+	updates["status"] = req.Status
+
+	result := transaction.Model(&models.DBRoles{}).
+		Where("role_id = ? AND tenant_id = ?", req.RoleId, tenantId).
+		Updates(updates)
+
+	if result.Error != nil {
+		fmt.Printf("Error updating role: %v\n", result.Error)
+		return fmt.Errorf("error updating role: %w", result.Error)
+	}
+
+	if result.RowsAffected == 0 {
+		fmt.Printf("No rows updated for roleId: %s\n", req.RoleId)
+		return fmt.Errorf("no role found to update with id %s", req.RoleId)
+	}
+
+	if err := transaction.Commit().Error; err != nil {
+		fmt.Printf("Error committing transaction: %v\n", err)
+		return fmt.Errorf("error committing transaction: %w", err)
+	}
+
+	fmt.Printf("Successfully updated role %s (rows affected: %d)\n", req.RoleId, result.RowsAffected)
+	return nil
 }

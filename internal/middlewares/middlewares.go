@@ -4,124 +4,107 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/vviveksharma/auth/cache"
 	"github.com/vviveksharma/auth/db"
 	model "github.com/vviveksharma/auth/internal/models"
 	"github.com/vviveksharma/auth/internal/repo"
-	"github.com/vviveksharma/auth/models"
 )
 
-func ExtractHeadersMiddleware() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		userID := c.Get("userId")
-
-		if userID == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "UserId header is required",
-			})
-		}
-		c.Locals("userId", userID)
-		fmt.Println("the userId from the middleware: ", userID)
-		return c.Next()
-	}
-}
-
-func ExtractRoleIdMiddleware() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		roleId := c.Get("roleId")
-		if roleId == "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "roleId header is required",
-			})
-		}
-		c.Locals("roleId", roleId)
-		return c.Next()
-	}
-}
-
-func JWTMiddleware() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		authHeader := c.Get("Authorization")
-		if authHeader == "" {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Missing token"})
-		}
-
-		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
-		claims, err := VerifyJWT(tokenStr)
-		if err != nil {
-			fmt.Println("the error while verifying the token: ", err)
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid or expired token"})
-		}
-
-		c.Locals("authClaims", claims)
-		return c.Next()
-	}
-}
-
 func TenantMiddleWare() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		log.Println("Inside the middleware")
-		authHeader := c.Get("Authorization")
-		if authHeader == "" {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Missing token"})
-		}
+    return func(c *fiber.Ctx) error {
+        log.Println("Inside the TenantMiddleWare")
+        
+        // Extract Authorization header
+        authHeader := c.Get("Authorization")
+        if authHeader == "" {
+            return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+                "error":       true,
+                "message":     "Missing authorization token",
+                "status_code": fiber.StatusUnauthorized,
+            })
+        }
 
-		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
-		Newtoken, err := repo.NewTokenRepository(db.DB)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(models.ServiceResponse{
-				Code:    500,
-				Message: "error while connecting to db repositry",
-			})
-		}
-		log.Println(" the token string :", tokenStr)
-		resp, tenant_id, err := Newtoken.VerifyToken(tokenStr)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(models.ServiceResponse{
-				Code:    500,
-				Message: fmt.Sprintf("error while verifying token: %v", err),
-			})
-		}
-		if resp {
-			c.Locals("token", tokenStr)
-			c.Locals("tenant_id", tenant_id)
-		}
-		return c.Next()
-	}
-}
+        // Extract token from "Bearer <token>" format
+        tokenStr := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))  // ✅ Added space
+        if tokenStr == "" {
+            return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+                "error":       true,
+                "message":     "Invalid authorization header format. Expected: Bearer <token>",
+                "status_code": fiber.StatusUnauthorized,
+            })
+        }
 
-func GetTenantFromToken() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		token := c.Query("application_key")
-		if token == "" {
-			return &models.ServiceResponse{
-				Code:    400,
-				Message: "A valid tenant-generated token is required for every request. Please provide the application_key parameter, or register as a tenant if you are the owner.",
-			}
-		}
-		Newtoken, err := repo.NewTokenRepository(db.DB)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(models.ServiceResponse{
-				Code:    500,
-				Message: "error while connecting to db repositry",
-			})
-		}
-		resp, tenant_id, err := Newtoken.VerifyToken(token)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(err)
-		}
-		if resp {
-			c.Locals("tenant_id", tenant_id)
-		}
-		return nil
-	}
+        // Check cache first
+        cacheKey := "token:" + tokenStr
+        var tenant_id string
+        err := cache.Get(cacheKey, &tenant_id)
+        if err == nil && tenant_id != "" {  // ✅ Check tenant_id is not empty
+            log.Printf("✅ Cache hit for token: %s, tenant_id: %s", tokenStr, tenant_id)
+            c.Locals("token", tokenStr)
+            c.Locals("tenant_id", tenant_id)
+            return c.Next()
+        }
+
+        log.Println("⚠️ Cache miss, verifying token from database...")
+
+        // Verify token from database
+        Newtoken, err := repo.NewTokenRepository(db.DB)
+        if err != nil {
+            log.Printf("❌ Error creating token repository: %v", err)
+            return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+                "error":       true,
+                "message":     "error while connecting to db repository",
+                "status_code": 500,
+            })
+        }
+
+        log.Println("Verifying token:", tokenStr)
+        var resp bool
+        resp, tenant_id, err = Newtoken.VerifyToken(tokenStr) 
+        if err != nil {
+            log.Printf("❌ Token verification failed: %v", err)
+            return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+                "error":       true,
+                "message":     fmt.Sprintf("error while verifying token: %v", err),
+                "status_code": fiber.StatusUnauthorized,
+            })
+        }
+
+        // Check if token is valid
+        if !resp || tenant_id == "" { 
+            log.Println("❌ Invalid token or missing tenant_id")
+            return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+                "error":       true,
+                "message":     "Invalid or expired token",
+                "status_code": fiber.StatusUnauthorized,
+            })
+        }
+
+        // Token is valid - cache it and continue
+        log.Printf("✅ Token verified successfully for tenant: %s", tenant_id)
+        cache.Set(cacheKey, tenant_id, 24*time.Hour)
+        c.Locals("token", tokenStr)
+        c.Locals("tenant_id", tenant_id)
+        
+        return c.Next() 
+    }
 }
 
 func VerifyRoleRouteMapping(roleId string, route string, method string) (bool, error) {
 	roleRoute, err := repo.NewRouteRoleRepository(db.DB)
 	if err != nil {
 		return false, fmt.Errorf("error while initializing the roleroute repository: %w", err)
+	}
+
+	cacheKey := fmt.Sprintf("role_access:%s:%s:%s", roleId, route, method)
+	var hasAccess bool
+	err = cache.Get(cacheKey, &hasAccess)
+	if err == nil {
+		log.Println("CACHE HIT")
+		return hasAccess, nil
 	}
 
 	routes, err := roleRoute.GetRoleRouteMapping(roleId)
@@ -139,8 +122,13 @@ func VerifyRoleRouteMapping(roleId string, route string, method string) (bool, e
 	per, flag := model.FindMethodWithPatterns(method, route, permi)
 
 	if per == nil {
+		hasAccess = false
 		return false, nil
 	}
+
+	hasAccess = flag
+
+	cache.Set(cacheKey, hasAccess, 30*time.Minute)
 
 	fmt.Println("the flag: ", flag)
 

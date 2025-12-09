@@ -35,6 +35,7 @@ type DBRoles struct {
 	Id          uuid.UUID `gorm:"primaryKey,column:id"`
 	Role        string    `json:"role"`
 	DisplayName string    `json:"display_name"`
+	Description string    `json:"description"`
 	RoleId      uuid.UUID `json:"role_id"`
 	TenantId    uuid.UUID `gorm:"type:uuid;not null"`
 	RoleType    string    `json:"role_type"`
@@ -182,6 +183,27 @@ func (DBResetToken) TableName() string {
 }
 
 func (*DBResetToken) BeforeCreate(tx *gorm.DB) error {
+	uuid := uuid.New().String()
+	tx.Statement.SetColumn("Id", uuid)
+	return nil
+}
+
+type DBMessage struct {
+	Id            uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
+	UserEmail     string    `gorm:"type:varchar(255);not null" json:"user_email"`
+	TenantId      uuid.UUID `gorm:"type:uuid;not null" json:"tenant_id"`
+	CurrentRole   string    `gorm:"type:varchar(100);not null" json:"current_role"`
+	RequestedRole string    `gorm:"type:varchar(100);not null" json:"requested_role"`
+	Status        string    `gorm:"type:varchar(50);default:'pending'" json:"status"`
+	RequestAt     time.Time `gorm:"autoCreateTime" json:"request_at"`
+	Action        bool      `gorm:"default:false" json:"action"`
+}
+
+func (DBMessage) TableName() string {
+	return "message_tbl"
+}
+
+func (*DBMessage) BeforeCreate(tx *gorm.DB) error {
 	uuid := uuid.New().String()
 	tx.Statement.SetColumn("Id", uuid)
 	return nil

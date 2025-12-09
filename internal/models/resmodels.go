@@ -154,11 +154,11 @@ type UserVerifyOTPResponse struct {
 }
 
 type ListUserTenant struct {
-	Name         string `json:"name"`
-	Email        string `json:"email"`
+	Name         string   `json:"name"`
+	Email        string   `json:"email"`
 	Role         []string `json:"role"`
-	LogginStatus bool   `json:"log_status"`
-	CreatedAt    string `json:"created_at"`
+	LogginStatus bool     `json:"log_status"`
+	CreatedAt    string   `json:"created_at"`
 }
 
 type DeleteUserResponse struct {
@@ -232,4 +232,18 @@ type GetListTokenWithStatus struct {
 	CreateAt  time.Time `json:"created_at"`
 	ExpiresAt time.Time `json:"expiry_at"`
 	Status    bool      `json:"status"`
+}
+
+type CreateMessageResponse struct {
+	Message string `json:"message"`
+}
+
+type GetMessageStatusResponse struct {
+	Status string `json:"string"`
+}
+
+type ListMessageStatusResponse struct {
+	MessageId     string `json:"message_id"`
+	Status        string `json:"status"`
+	RequestedRole string `json:"requested_role"`
 }

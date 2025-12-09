@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 // Model definitions
@@ -23,7 +25,6 @@ type Permission struct {
 	Description string   `json:"description"`
 }
 
-// SimplePermission represents a permission without the methods array (for classification)
 type SimplePermission struct {
 	Route       string `json:"route"`
 	Description string `json:"description"`
@@ -42,6 +43,18 @@ func ConvertDBData(db string) (*RoleData, error) {
 		return nil, fmt.Errorf("error unmarshaling JSON: %v", err)
 	}
 	return &roleData, nil
+}
+
+func IsSystemRole(roleID uuid.UUID) bool {
+	roleIDStr := roleID.String()
+	systemRoleMap := map[string]bool{
+		"f47ac10b-58cc-4372-a567-0e02b2c3d479": true,
+		"6ba7b810-9dad-11d1-80b4-00c04fd430c8": true,
+		"1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed": true,
+		"550e8400-e29b-41d4-a716-446655440000": true,
+	}
+	
+	return systemRoleMap[roleIDStr]
 }
 
 // Classify permissions by HTTP method and return as JSON-ready map

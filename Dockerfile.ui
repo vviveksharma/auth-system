@@ -1,0 +1,35 @@
+# Dockerfile.ui - UI/Tenant Server (Port 8081)
+
+# Stage 1: Build the Golang binary
+FROM golang:1.24-alpine AS builder
+
+WORKDIR /app
+
+# Copy go mod files
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build the binary
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o ui-server -ldflags="-X main.ServerMode=UI" ./
+
+# Stage 2: Create minimal runtime image
+FROM alpine:latest
+
+WORKDIR /app
+
+# Install ca-certificates for HTTPS
+RUN apk --no-cache add ca-certificates
+
+# Copy binary and required files
+COPY --from=builder /app/ui-server .
+COPY --from=builder /app/.env ./.env
+COPY --from=builder /app/permissions /app/permissions
+
+# Expose UI server port
+EXPOSE 8081
+
+# Run UI server
+CMD ["./ui-server"]

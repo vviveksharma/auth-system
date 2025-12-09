@@ -1,0 +1,99 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug API Server",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}",
+            "env": {
+                "DB_HOST": "localhost",
+                "DB_PORT": "26257",
+                "DB_USER": "root",
+                "DB_PASSWORD": "",
+                "DB_NAME": "auth_db",
+                "REDIS_HOST": "localhost",
+                "REDIS_PORT": "6379",
+                "RABBITMQ_URL": "amqp://guest:guest@localhost:5672/",
+                "JWT_SECRET": "your-secret-key-here",
+                "API_PORT": "8080",
+                "UI_PORT": "8081",
+                "SMTP_HOST": "localhost",
+                "SMTP_PORT": "1025"
+            },
+            "args": [],
+            "showLog": true,
+            "trace": "verbose"
+        },
+        {
+            "name": "Debug API Server (Test Environment)",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}",
+            "env": {
+                "DB_HOST": "localhost",
+                "DB_PORT": "26258",
+                "DB_USER": "root",
+                "DB_PASSWORD": "",
+                "DB_NAME": "test_auth_db",
+                "REDIS_HOST": "localhost",
+                "REDIS_PORT": "6380",
+                "RABBITMQ_URL": "amqp://guest:guest@localhost:5673/",
+                "JWT_SECRET": "test-secret-key",
+                "API_PORT": "8080",
+                "UI_PORT": "8081",
+                "SMTP_HOST": "localhost",
+                "SMTP_PORT": "1026"
+            },
+            "args": [],
+            "showLog": true,
+            "trace": "verbose"
+        },
+        {
+            "name": "Debug Integration Tests",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/test-suite",
+            "env": {
+                "API_BASE_URL": "http://localhost:8080",
+                "UI_BASE_URL": "http://localhost:8081"
+            },
+            "args": [
+                "-test.v",
+                "-test.run",
+                "^TestIntegrationSuite$"
+            ],
+            "showLog": true,
+            "trace": "verbose"
+        },
+        {
+            "name": "Debug Specific Test",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/test-suite",
+            "env": {
+                "API_BASE_URL": "http://localhost:8080",
+                "UI_BASE_URL": "http://localhost:8081"
+            },
+            "args": [
+                "-test.v",
+                "-test.run",
+                "^TestIntegrationSuite/Test13_API_ListUsers$"
+            ],
+            "showLog": true,
+            "trace": "verbose"
+        },
+        {
+            "name": "Attach to Running API",
+            "type": "go",
+            "request": "attach",
+            "mode": "local",
+            "processId": 0,
+            "showLog": true
+        }
+    ]
+}

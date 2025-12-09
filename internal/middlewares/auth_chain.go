@@ -3,9 +3,11 @@ package middlewares
 import (
 	"log"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/vviveksharma/auth/cache"
 	"github.com/vviveksharma/auth/db"
 	"github.com/vviveksharma/auth/internal/repo"
 	"github.com/vviveksharma/auth/models"
@@ -32,6 +34,21 @@ func ApplicationKeyMiddleware() fiber.Handler {
 			})
 		}
 
+		// Check cache first
+		cacheKey := "application_key:" + key
+		var tenantID string
+		err = cache.Get(cacheKey, &tenantID)
+
+		if err == nil {
+			// Cache HIT - tenantID found
+			log.Printf("✅ Cache HIT: Application key verified from cache")
+			c.Locals("tenant_id", tenantID)
+			c.Locals("application_key", key)
+			return c.Next()
+		}
+
+		// Cache MISS - verify from database
+		log.Printf("⚠️ Cache MISS: Verifying application key from database")
 		isValid, tenantID, err := tokenRepo.VerifyApplicationToken(key)
 		if err != nil {
 			log.Printf("Application key verification failed: %v", err)
@@ -47,10 +64,14 @@ func ApplicationKeyMiddleware() fiber.Handler {
 				Message: "Invalid application key",
 			})
 		}
+
+		// Cache the tenantID for this application key
+		cache.Set(cacheKey, tenantID, 1*time.Hour)
+		log.Printf("✅ Cached application key: %s -> tenant: %s", key, tenantID)
+
 		// Store tenant info for downstream middleware/handlers
 		c.Locals("tenant_id", tenantID)
 		c.Locals("application_key", key)
-
 		return c.Next()
 	}
 }
@@ -105,8 +126,6 @@ func AuthorizationMiddleware() fiber.Handler {
 			})
 		}
 
-		
-
 		hasAccess, err := VerifyRoleRouteMapping(roleID, c.Path(), c.Method())
 		if err != nil {
 			log.Printf("Role route verification failed for role %s on path %s: %v", roleID, c.Path(), err)
@@ -124,8 +143,18 @@ func AuthorizationMiddleware() fiber.Handler {
 			})
 		}
 
+		userID, ok := claims["user_id"].(string)
+		if !ok {
+			log.Printf("Invalid user_id claim type in JWT")
+			return c.Status(fiber.StatusUnauthorized).JSON(models.ServiceResponse{
+				Code:    fiber.StatusUnauthorized,
+				Message: "Invalid token claims",
+			})
+		}
+
 		// Store role info for downstream handlers
 		c.Locals("role_id", roleID)
+		c.Locals("user_id", userID)
 
 		return c.Next()
 	}

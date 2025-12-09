@@ -11,15 +11,19 @@ import (
 )
 
 // ListAllRoles godoc
-// @Summary      List all roles
-// @Description  Retrieves all roles from the system. Optionally, you can filter roles by type using the 'type' query parameter. If not provided, the default type is used.
+// @Summary      List all roles with pagination
+// @Description  Retrieves all roles from the system with pagination support. Filter roles by type using 'roleTypeFlag' query parameter ('custom' or 'default'). Includes role routes in response.
 // @Tags         Roles
 // @Accept       json
 // @Produce      json
-// @Param        roleTypeFlag  query     string  false  "Role type to filter (e.g., 'admin', 'user', 'default'). If not provided, defaults to 'default'."
-// @Success      200   {object}  responsemodels.ServiceResponse  "Roles fetched successfully. Data contains the list of roles."
+// @Param        roleTypeFlag  query     string  false  "Role type to filter: 'custom' or 'default'. If not provided, defaults to 'custom'."
+// @Param        page  query     int  false  "Page number (default: 1)"
+// @Param        page_size  query     int  false  "Number of items per page (default: 5)"
+// @Success      200   {object}  responsemodels.ServiceResponse  "Roles fetched successfully with pagination metadata. Data includes role details and associated routes."
+// @Failure      400   {object}  responsemodels.BadRequestResponse  "Bad request. Invalid roleTypeFlag parameter (must be 'custom' or 'default')."
 // @Failure      500   {object}  responsemodels.InternalServerErrorResponse  "Internal server error. This occurs if there is an unexpected error while fetching roles."
 // @Router       /roles [get]
+// @Security     ApiKeyAuth
 func (h *Handler) ListAllRoles(ctx *fiber.Ctx) error {
 	flag := ctx.Query("roleTypeFlag")
 	if flag == "" {
@@ -27,7 +31,12 @@ func (h *Handler) ListAllRoles(ctx *fiber.Ctx) error {
 	} else if flag != "custom" && flag != "default" {
 		return BadRequest(ctx, "the roleTypeFlag could be only default or user")
 	}
-	resp, err := h.RoleService.ListRoles(flag, 1, 5, ctx.Context())
+
+	// Parse pagination parameters
+	page := ctx.QueryInt("page", 1)
+	pageSize := ctx.QueryInt("page_size", 5)
+
+	resp, err := h.RoleService.ListRoles(flag, page, pageSize, ctx.Context())
 	if err != nil {
 		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
 			return ctx.Status(serviceErr.Code).JSON(err)
@@ -43,54 +52,20 @@ func (h *Handler) ListAllRoles(ctx *fiber.Ctx) error {
 	})
 }
 
-// VerifyRole godoc
-// @Summary      Verify role
-// @Description  Verifies if a role exists by roleId and roleName. Returns 404 if either is missing or not found, 422 if the request body is invalid.
-// @Tags         Roles
-// @Accept       json
-// @Produce      json
-// @Param        request  body      models.VerifyRoleRequest  true  "Verify Role Request. Requires both 'roleId' and 'roleName'."
-// @Success      200      {object}  responsemodels.ServiceResponse  "Role verified successfully."
-// @Failure      400      {object}  responsemodels.BadRequestResponse  "Bad Request. This occurs if either 'roleId' or 'roleName' is missing or invalid."
-// @Failure      422      {object}  responsemodels.StatusUnprocessableEntityResponse  "Unprocessable Entity. This occurs if the request body cannot be parsed."
-// @Failure      500      {object}  responsemodels.InternalServerErrorResponse  "Internal server error. This occurs if there is an unexpected error while verifying the role."
-// @Router       /roles/verify [post]
-func (h *Handler) VerifyRole(ctx *fiber.Ctx) error {
-	var req *models.VerifyRoleRequest
-	err := ctx.BodyParser(&req)
-	if err != nil {
-		return UnprocessableEntity(ctx)
-	}
-	if req.RoleId == "" || req.RoleName == "" {
-		return BadRequest(ctx, "Invalid request: 'role_name' and 'role_id' fields are required and cannot be empty.")
-	}
-	resp, err := h.RoleService.VerifyRole(req)
-	if err != nil {
-		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
-			return ctx.Status(serviceErr.Code).JSON(err)
-		} else {
-			return InternalServerError(ctx, "Internal server error occurred: "+err.Error())
-		}
-	}
-	return ctx.Status(fiber.StatusOK).JSON(responsemodels.ServiceResponse{
-		Code:    200,
-		Message: "Role verified successfully",
-		Data:    resp,
-	})
-}
-
 // CreateCustomRole godoc
 // @Summary      Create custom role
-// @Description  Creates a new custom role with specified routes. Requires a unique role name and a list of routes. Returns 422 if the request is invalid, 500 for internal errors.
+// @Description  Creates a new custom role with specified permissions. Requires name, display_name, description, and permissions array with route, methods, and description for each permission.
 // @Tags         Roles
 // @Accept       json
 // @Produce      json
-// @Param        request  body      models.CreateCustomRole  true  "Create Custom Role Request. Requires 'roleName' and 'routes' fields."
+// @Param        request  body      models.CreateCustomRole  true  "Create Custom Role Request. Requires 'name', 'display_name', 'description', and 'Permissions' array."
 // @Success      200      {object}  responsemodels.ServiceResponse  "Role created successfully."
-// @Failure      400      {object}  responsemodels.BadRequestResponse  "Bad Request. This occurs if 'roleName' or 'routes' are missing or invalid."
+// @Failure      400      {object}  responsemodels.BadRequestResponse  "Bad Request. This occurs if required fields (name, display_name, description, or Permissions) are missing or invalid."
+// @Failure      409      {object}  responsemodels.ConflictResponse  "Conflict. This occurs if a role with the same name already exists."
 // @Failure      422      {object}  responsemodels.StatusUnprocessableEntityResponse  "Unprocessable Entity. This occurs if the request body cannot be parsed."
 // @Failure      500      {object}  responsemodels.InternalServerErrorResponse  "Internal server error. This occurs if there is an unexpected error while creating the role."
 // @Router       /roles/ [post]
+// @Security     ApiKeyAuth
 func (h *Handler) CreateCustomRole(ctx *fiber.Ctx) error {
 	var req models.CreateCustomRole
 	err := ctx.BodyParser(&req)
@@ -116,16 +91,20 @@ func (h *Handler) CreateCustomRole(ctx *fiber.Ctx) error {
 
 // UpdateRolePermission godoc
 // @Summary      Update role permissions
-// @Description  Adds or removes permissions from a role. Requires role name and lists of permissions to add or remove. Returns 422 if the request is invalid, 500 for internal errors.
+// @Description  Adds or removes permissions from a role. Requires role name (role field), and lists of permissions to add (add_permissions) or remove (remove_permissions). Each permission includes route, methods array, and description.
 // @Tags         Roles
 // @Accept       json
 // @Produce      json
-// @Param        request  body      models.UpdateRolePermissions  true  "Update Role Permissions Request. Requires 'roleName', 'addPermisions', and 'removePermissions'."
+// @Param        id       path      string  true  "Role ID to update permissions for. Must be a valid UUID format."
+// @Param        request  body      models.UpdateRolePermissions  true  "Update Role Permissions Request. Requires 'role', 'add_permissions', and 'remove_permissions'."
 // @Success      200      {object}  responsemodels.ServiceResponse  "Role permissions updated successfully."
 // @Failure      400      {object}  responsemodels.BadRequestResponse  "Bad Request. This occurs if required fields are missing or invalid."
+// @Failure      404      {object}  responsemodels.ServiceResponse  "Not Found. This occurs if the role with the specified name doesn't exist."
+// @Failure      409      {object}  responsemodels.ConflictResponse  "Conflict. This occurs if trying to modify a default/system role."
 // @Failure      422      {object}  responsemodels.StatusUnprocessableEntityResponse  "Unprocessable Entity. This occurs if the request body cannot be parsed."
 // @Failure      500      {object}  responsemodels.InternalServerErrorResponse  "Internal server error. This occurs if there is an unexpected error while updating permissions."
-// @Router       /roles/:id/permissions [put]
+// @Router       /roles/{id}/permissions [put]
+// @Security     ApiKeyAuth
 func (h *Handler) UpdateRolePermission(ctx *fiber.Ctx) error {
 	var req models.UpdateRolePermissions
 	err := ctx.BodyParser(&req)
@@ -152,16 +131,17 @@ func (h *Handler) UpdateRolePermission(ctx *fiber.Ctx) error {
 
 // DeleteCustomRole godoc
 // @Summary      Delete custom role
-// @Description  Deletes a custom role by its ID. Only custom roles can be deleted; system roles are protected. Any users currently assigned this role will need to be reassigned before deletion.
+// @Description  Deletes a custom role by its ID. Only custom roles can be deleted; system/default roles are protected. The role must not be currently assigned to any users.
 // @Tags         Roles
 // @Accept       json
 // @Produce      json
 // @Param        id   path      string  true  "Role ID to delete. Must be a valid UUID format."
 // @Success      200  {object}  responsemodels.ServiceResponse  "Role deleted successfully."
 // @Failure      400  {object}  responsemodels.BadRequestResponse  "Bad Request. This occurs if the 'id' path parameter is missing, empty, or not a valid UUID format."
-// @Failure      409  {object}  responsemodels.ConflictResponse  "Conflict. This occurs if the role is currently assigned to users and cannot be deleted."
+// @Failure      404  {object}  responsemodels.ServiceResponse  "Not Found. This occurs if no role exists with the provided ID or if trying to delete a default/system role."
 // @Failure      500  {object}  responsemodels.InternalServerErrorResponse  "Internal server error. This occurs if there is an unexpected error while deleting the role."
 // @Router       /roles/{id} [delete]
+// @Security     ApiKeyAuth
 func (h *Handler) DeleteCustomRole(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 	if id == "" {
@@ -173,7 +153,7 @@ func (h *Handler) DeleteCustomRole(ctx *fiber.Ctx) error {
 			return ctx.Status(serviceErr.Code).JSON(serviceErr)
 		} else {
 			log.Printf("Unexpected error while deleting role with id %s: %v", id, err)
-			return ctx.Status(500).JSON(responsemodels.ServiceResponse{
+			return ctx.Status(500).JSON(&responsemodels.ServiceResponse{
 				Code:    500,
 				Message: fmt.Sprintf("An unexpected error occurred while deleting role: %v", err),
 			})
@@ -188,16 +168,19 @@ func (h *Handler) DeleteCustomRole(ctx *fiber.Ctx) error {
 
 // EnableRole godoc
 // @Summary      Enable role
-// @Description  Enables a role by its ID, making it available for assignment to users. Only disabled roles can be enabled. System roles are always enabled by default.
+// @Description  Enables a role by its ID, making it available for assignment to users. Only disabled custom roles can be enabled. System/default roles are always enabled.
 // @Tags         Roles
 // @Accept       json
 // @Produce      json
 // @Param        id   path      string  true  "Role ID to enable. Must be a valid UUID format."
 // @Success      200  {object}  responsemodels.ServiceResponse  "Role enabled successfully."
 // @Failure      400  {object}  responsemodels.BadRequestResponse  "Bad Request. This occurs if the 'id' path parameter is missing, empty, or not a valid UUID format."
+// @Failure      403  {object}  responsemodels.ServiceResponse  "Forbidden. This occurs if trying to modify a system/default role."
+// @Failure      404  {object}  responsemodels.ServiceResponse  "Not Found. This occurs if no role exists with the provided ID."
 // @Failure      409  {object}  responsemodels.ConflictResponse  "Conflict. This occurs if the role is already enabled."
 // @Failure      500  {object}  responsemodels.InternalServerErrorResponse  "Internal server error. This occurs if there is an unexpected error while enabling the role."
 // @Router       /roles/{id}/enable [put]
+// @Security     ApiKeyAuth
 func (h *Handler) EnableRole(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 	if id == "" {
@@ -224,16 +207,19 @@ func (h *Handler) EnableRole(ctx *fiber.Ctx) error {
 
 // DisableRole godoc
 // @Summary      Disable role
-// @Description  Disables a role by its ID, preventing it from being assigned to new users. Existing users with this role will retain it but new assignments are blocked. System roles cannot be disabled.
+// @Description  Disables a role by its ID, preventing it from being assigned to new users. Existing users with this role will retain it but new assignments are blocked. System/default roles cannot be disabled.
 // @Tags         Roles
 // @Accept       json
 // @Produce      json
 // @Param        id   path      string  true  "Role ID to disable. Must be a valid UUID format."
 // @Success      200  {object}  responsemodels.ServiceResponse  "Role disabled successfully."
 // @Failure      400  {object}  responsemodels.BadRequestResponse  "Bad Request. This occurs if the 'id' path parameter is missing, empty, or not a valid UUID format."
+// @Failure      403  {object}  responsemodels.ServiceResponse  "Forbidden. This occurs if trying to modify a system/default role."
+// @Failure      404  {object}  responsemodels.ServiceResponse  "Not Found. This occurs if no role exists with the provided ID."
 // @Failure      409  {object}  responsemodels.ConflictResponse  "Conflict. This occurs if the role is already disabled."
 // @Failure      500  {object}  responsemodels.InternalServerErrorResponse  "Internal server error. This occurs if there is an unexpected error while disabling the role."
 // @Router       /roles/{id}/disable [put]
+// @Security     ApiKeyAuth
 func (h *Handler) DisableRole(ctx *fiber.Ctx) error {
 	id := ctx.Params("id")
 	if id == "" {
@@ -260,13 +246,14 @@ func (h *Handler) DisableRole(ctx *fiber.Ctx) error {
 
 // GetRolePermissions godoc
 // @Summary      Get role permissions
-// @Description  Retrieves all routes and permissions associated with a specific role by role ID. This is useful for role management and permission auditing. Returns detailed permission structure including HTTP methods and route information.
+// @Description  Retrieves all routes and permissions associated with a specific role by role ID. Returns detailed permission structure classified by HTTP methods (GET, POST, PUT, DELETE, etc.), route information, role details, and processing timestamp. Supports both custom and system roles.
 // @Tags         Roles
 // @Accept       json
 // @Produce      json
-// @Param        id   path      string  true  "Role ID to retrieve permissions for. Must be a valid UUID format."
-// @Success      200  {object}  responsemodels.ServiceResponse  "Role permissions retrieved successfully. Data contains the detailed permission structure."
+// @Param        id   path      string  true  "Role ID to retrieve permissions for. Must be a valid UUID format. Supports both custom and system role IDs."
+// @Success      200  {object}  responsemodels.ServiceResponse  "Role permissions retrieved successfully. Data contains Routes (classified by method), RoutesJSON (formatted JSON string), RoleInfo, and ProcessedAt timestamp."
 // @Failure      400  {object}  responsemodels.BadRequestResponse  "Bad Request. This occurs if the 'id' path parameter is missing, empty, or not a valid UUID format."
+// @Failure      404  {object}  responsemodels.ServiceResponse  "Not Found. This occurs if no role exists with the provided ID."
 // @Failure      500  {object}  responsemodels.InternalServerErrorResponse  "Internal server error. This occurs if there is an unexpected error while retrieving role permissions."
 // @Router       /roles/{id}/permissions [get]
 // @Security     ApiKeyAuth

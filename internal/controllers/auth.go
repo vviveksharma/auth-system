@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/gofiber/fiber/v2"
@@ -14,16 +13,20 @@ import (
 // LoginUser handles user login requests.
 //
 // @Summary      User Login
-// @Description  Authenticates a user and returns a JWT token upon successful login.
+// @Description  Authenticates a user and returns a JWT token upon successful login. Requires email, password, and role to be provided.
 // @Tags         Auth
 // @Accept       json
 // @Produce      json
-// @Param        body  body      models.UserLoginRequest  true  "User login credentials"
+// @Param        body  body      models.UserLoginRequest  true  "User login credentials including email, password, and role"
 // @Success      200   {object}  responsemodels.ServiceResponse "JWT token and success message"
 // @Failure      400   {object}  responsemodels.BadRequestResponse "Invalid credentials or missing fields"
+// @Failure      401   {object}  responsemodels.UnauthorizedResponse "Unauthorized, invalid credentials"
+// @Failure      403   {object}  responsemodels.ServiceResponse "Forbidden, user doesn't have required role"
+// @Failure      404   {object}  responsemodels.ServiceResponse "User or role not found"
 // @Failure      422   {object}  responsemodels.StatusUnprocessableEntityResponse "Error while parsing the request body"
 // @Failure      500   {object}  responsemodels.InternalServerErrorResponse "Unexpected server error"
-// @Router       /login [post]
+// @Router       /auth/login [post]
+// @Security     ApiKeyAuth
 func (h *Handler) LoginUser(ctx *fiber.Ctx) error {
 	var req models.UserLoginRequest
 	err := ctx.BodyParser(&req)
@@ -37,8 +40,6 @@ func (h *Handler) LoginUser(ctx *fiber.Ctx) error {
 	if req.Role == "" {
 		return BadRequest(ctx, "role should be provided")
 	}
-	tenant_id := ctx.Context().Value("tenant_id").(string)
-	fmt.Println("the tenant id : ", tenant_id)
 	resp, err := h.AuthService.LoginUser(&req, ctx.Context())
 	if err != nil {
 		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
@@ -57,12 +58,14 @@ func (h *Handler) LoginUser(ctx *fiber.Ctx) error {
 // RefreshToken refreshes the JWT token for an authenticated user.
 //
 // @Summary      Refresh JWT Token
-// @Description  Refreshes and returns a new JWT token for the authenticated user.
+// @Description  Refreshes and returns a new JWT token for the authenticated user. Requires a valid JWT token to be provided.
 // @Tags         Auth
 // @Produce      json
 // @Success      200  {object}  responsemodels.ServiceResponse "Refreshed JWT token and success message"
+// @Failure      401  {object}  responsemodels.UnauthorizedResponse "Unauthorized, invalid or missing JWT token"
 // @Failure      500  {object}  responsemodels.InternalServerErrorResponse "Unexpected server error"
-// @Router       /refresh-token [post]
+// @Router       /auth/refresh [put]
+// @Security     ApiKeyAuth
 func (h *Handler) RefreshToken(ctx *fiber.Ctx) error {
 	claims := ctx.Locals("authClaims").(jwt.MapClaims)
 	userId := claims["user_id"]
@@ -87,9 +90,11 @@ func (h *Handler) RefreshToken(ctx *fiber.Ctx) error {
 // @Description  Logs out the logged in user and invalidates its existing token.
 // @Tags         Auth
 // @Produce      json
-// @Success      200  {object}  responsemodels.ServiceResponse "Refreshed JWT token and success message"
+// @Success      200  {object}  responsemodels.ServiceResponse "Logout successful message"
+// @Failure      401  {object}  responsemodels.UnauthorizedResponse "Unauthorized, invalid or missing JWT token"
 // @Failure      500  {object}  responsemodels.InternalServerErrorResponse "Unexpected server error"
-// @Router       /refresh-token [post]
+// @Router       /auth/logout [put]
+// @Security     ApiKeyAuth
 func (h *Handler) LogoutUser(ctx *fiber.Ctx) error {
 	claims := ctx.Locals("authClaims").(jwt.MapClaims)
 	userId := claims["user_id"]

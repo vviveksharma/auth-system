@@ -7,18 +7,18 @@ import (
 )
 
 type Handler struct {
-	UserService   services.UserService
-	RoleService   services.RoleService
-	AuthService   services.AuthService
-	TenantService services.TenantService
+	UserService    services.UserService
+	RoleService    services.RoleService
+	AuthService    services.AuthService
+	MessageService services.MessageService
 }
 
-func NewHandler(userService services.UserService, roleService services.RoleService, authService services.AuthService, tenantService services.TenantService) (*Handler, error) {
+func NewHandler(userService services.UserService, roleService services.RoleService, authService services.AuthService, messageService services.MessageService) (*Handler, error) {
 	return &Handler{
-		UserService:   userService,
-		RoleService:   roleService,
-		AuthService:   authService,
-		TenantService: tenantService,
+		UserService:    userService,
+		RoleService:    roleService,
+		AuthService:    authService,
+		MessageService: messageService,
 	}, nil
 }
 
