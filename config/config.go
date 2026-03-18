@@ -15,6 +15,7 @@ import (
 	"github.com/streadway/amqp"
 	"github.com/vviveksharma/auth/cache"
 	"github.com/vviveksharma/auth/db"
+	dbmigrations "github.com/vviveksharma/auth/db/migrations"
 	"github.com/vviveksharma/auth/initsetup"
 	"github.com/vviveksharma/auth/internal/controllers"
 	orgcontrollers "github.com/vviveksharma/auth/internal/controllers/orgControllers"
@@ -49,6 +50,20 @@ func InitializeSharedResources() (*SharedResources, error) {
 			log.Println("⚠️  Warning: Error loading .env file", err)
 		}
 		db.ConnectDB()
+
+		// Run all pending SQL migrations before anything else touches the DB.
+		// On a fresh/wiped DB this creates every table; on a running system it
+		// is a no-op (already-applied migrations are skipped).
+		sqlDB, err := db.DB.DB()
+		if err != nil {
+			initError = fmt.Errorf("get underlying sql.DB for migrations: %w", err)
+			return
+		}
+		if err := dbmigrations.RunUp(sqlDB); err != nil {
+			initError = fmt.Errorf("auto-migration failed: %w", err)
+			return
+		}
+
 		redisClient := cache.ConnectCache()
 		if redisClient == nil {
 			initError = fmt.Errorf("failed to connect to Redis: client is nil")
