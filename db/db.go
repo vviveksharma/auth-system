@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/vviveksharma/auth/db/migrations"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -42,7 +41,4 @@ func ConnectDB() {
 	sqlDb.SetConnMaxLifetime(time.Hour)
 	sqlDb.SetConnMaxIdleTime(10 * time.Minute)
 	fmt.Println("The database ping returned: ", sqlDb.Ping())
-
-	// Making migrations
-	migrations.AutoMigrator(DB)
 }

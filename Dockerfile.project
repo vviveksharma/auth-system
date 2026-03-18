@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1
+# Dockerfile.project - Project Server (Port 8082)
+
+FROM golang:1.26-alpine AS builder
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
+COPY . .
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build -o project-server -ldflags="-X main.ServerMode=Project" ./
+
+FROM alpine:latest
+
+WORKDIR /app
+
+RUN apk --no-cache add ca-certificates
+
+COPY --from=builder /app/project-server .
+COPY --from=builder /app/.env ./.env
+COPY --from=builder /app/docs /app/docs
+COPY --from=builder /app/permissions /app/permissions
+
+EXPOSE 8082
+CMD ["./project-server"]

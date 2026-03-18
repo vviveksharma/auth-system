@@ -62,7 +62,8 @@ type UpdateRolePermissions struct {
 }
 
 type ResetPasswordRequest struct {
-	Email string `json:"email"`
+	Email        string `json:"email"`
+	RecoveryCode string `json:"recovery_code"`
 }
 
 type CreateTokenRequest struct {
@@ -93,5 +94,5 @@ type CreateMessageRequest struct {
 }
 
 type ListMessageRequest struct {
-	Email         string `json:"email"`
+	Email string `json:"email"`
 }

@@ -26,9 +26,13 @@ func main() {
 		config.InitAPIOnly()
 	case "UI":
 		config.InitUIOnly()
+	case "Project":
+		config.InitProject()
+	case "Org":
+		config.InitOrg()
 	case "BOTH":
 		config.Init()
 	default:
-		log.Fatalf("❌ Invalid SERVER_MODE: %s (expected: API, UI, or BOTH)", mode)
+		log.Fatalf("❌ Invalid SERVER_MODE: %s (expected: API, UI, Project, Org, or BOTH)", mode)
 	}
 }

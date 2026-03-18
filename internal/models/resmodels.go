@@ -247,3 +247,7 @@ type ListMessageStatusResponse struct {
 	Status        string `json:"status"`
 	RequestedRole string `json:"requested_role"`
 }
+
+type CreateResetCredsResponse struct {
+	Tokens []string `json:"tokens"`
+}

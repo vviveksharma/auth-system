@@ -455,3 +455,23 @@ func (h *Handler) DisableUser(ctx *fiber.Ctx) error {
 		Data:    resp.Message,
 	})
 }
+
+func (h *Handler) CreateRecoveryCode(ctx *fiber.Ctx) error {
+	resp, err := h.UserService.CreateCreds(ctx.Context())
+	if err != nil {
+		if serviceErr, ok := err.(*responsemodels.ServiceResponse); ok {
+			return ctx.Status(serviceErr.Code).JSON(serviceErr)
+		} else {
+			log.Printf("Unexpected error while fetching users : %v", err)
+			return ctx.Status(500).JSON(responsemodels.ServiceResponse{
+				Code:    500,
+				Message: fmt.Sprintf("An unexpected error occurred while fetching users: %v", err),
+			})
+		}
+	}
+	return ctx.Status(fiber.StatusOK).JSON(responsemodels.ServiceResponse{
+		Code:    200,
+		Message: "The user was successfully disabled",
+		Data:    resp,
+	})
+}

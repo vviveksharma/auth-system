@@ -17,8 +17,12 @@ import (
 	"github.com/vviveksharma/auth/db"
 	"github.com/vviveksharma/auth/initsetup"
 	"github.com/vviveksharma/auth/internal/controllers"
+	orgcontrollers "github.com/vviveksharma/auth/internal/controllers/orgControllers"
+	projectcontrollers "github.com/vviveksharma/auth/internal/controllers/projectControllers"
 	tenantcontrollers "github.com/vviveksharma/auth/internal/controllers/tenantControllers"
 	"github.com/vviveksharma/auth/internal/services"
+	orgservices "github.com/vviveksharma/auth/internal/services/org-services"
+	projectservice "github.com/vviveksharma/auth/internal/services/project-service"
 	tenantservices "github.com/vviveksharma/auth/internal/services/tenant-services"
 	"github.com/vviveksharma/auth/queue"
 	"github.com/vviveksharma/auth/routes"
@@ -203,6 +207,81 @@ func CreateUIServer(resources *SharedResources) *fiber.App {
 	return app
 }
 
+// CreateUIServer creates the Project server (port 8082)
+func CreateProjectServer(resources *SharedResources) *fiber.App {
+	app := fiber.New(fiber.Config{
+		AppName: "Project Service",
+		ErrorHandler: func(c *fiber.Ctx, err error) error {
+			code := fiber.StatusInternalServerError
+			if e, ok := err.(*fiber.Error); ok {
+				code = e.Code
+			}
+			return c.Status(fiber.StatusOK).JSON(fiber.Map{
+				"error":       true,
+				"message":     err.Error(),
+				"status_code": code,
+			})
+		},
+	})
+
+	app.Use(recover.New())
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "*",
+		AllowMethods: "GET,POST,HEAD,PUT,DELETE,PATCH",
+	}))
+
+	projectService, err := projectservice.NewProjectService()
+	if err != nil {
+		log.Fatalln("❌ Error while starting the project: ", err)
+	}
+
+	projectHandler, err := projectcontrollers.NewProjectHandler(
+		projectService,
+	)
+	if err != nil {
+		log.Fatalln("❌ Error while starting project handler: ", err)
+	}
+
+	routes.ProjectRoutes(app, projectHandler)
+	return app
+}
+
+func CreateOrgServer(resources *SharedResources) *fiber.App {
+	app := fiber.New(fiber.Config{
+		AppName: "Org Service",
+		ErrorHandler: func(c *fiber.Ctx, err error) error {
+			code := fiber.StatusInternalServerError
+			if e, ok := err.(*fiber.Error); ok {
+				code = e.Code
+			}
+			return c.Status(fiber.StatusOK).JSON(fiber.Map{
+				"error":       true,
+				"message":     err.Error(),
+				"status_code": code,
+			})
+		},
+	})
+
+	app.Use(recover.New())
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "*",
+		AllowMethods: "GET,POST,HEAD,PUT,DELETE,PATCH",
+	}))
+
+	orgService, err := orgservices.NewOrgService()
+	if err != nil {
+		log.Fatalln("❌ Error while starting the project: ", err)
+	}
+
+	orgHandlers, err := orgcontrollers.NewOrgHandler(orgService)
+	if err != nil {
+		log.Fatalln("❌ Error while starting org handler: ", err)
+	}
+
+	routes.OrgRoutes(app, orgHandlers)
+	return app
+}
+
 // InitAPIOnly starts only the API server (port 8080)
 func InitAPIOnly() {
 	log.Println("🚀 Initializing Auth System - API Server Only...")
@@ -219,6 +298,42 @@ func InitAPIOnly() {
 	if err := app.Listen(":8080"); err != nil {
 		log.Fatalf("❌ API Server failed to start: %v", err)
 	}
+}
+
+// Project serivce starts only the project server (port 8082)
+func InitProject() {
+	log.Println("🚀 Initializing Auth System - API Server Only...")
+
+	resources, err := InitializeSharedResources()
+	if err != nil {
+		log.Fatalf("❌ Error while initializing shared resources: %v", err)
+	}
+
+	log.Println("✅ Shared resources initialized successfully")
+	log.Println("📡 Starting Project Server on port 8082...")
+
+	app := CreateProjectServer(resources)
+	if err := app.Listen(":8082"); err != nil {
+		log.Fatalf("❌ Project Server failed to start: %v", err)
+	}
+}
+
+func InitOrg() {
+	log.Println("🚀 Initializing Auth System - Org Server Only...")
+
+	resources, err := InitializeSharedResources()
+	if err != nil {
+		log.Fatalf("❌ Error while initializing shared resources: %v", err)
+	}
+
+	log.Println("✅ Shared resources initialized successfully")
+	log.Println("📡 Starting Org Server on port 8083...")
+
+	app := CreateOrgServer(resources)
+	if err := app.Listen(":8083"); err != nil {
+		log.Fatalf("❌ Org Server failed to start: %v", err)
+	}
+
 }
 
 // InitUIOnly starts only the UI/Tenant server (port 8081)
@@ -252,7 +367,7 @@ func Init() {
 	log.Println("🚀 Starting both servers...")
 
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(4)
 
 	// Start API Server
 	go func() {
@@ -274,10 +389,30 @@ func Init() {
 		}
 	}()
 
+	go func() {
+		defer wg.Done()
+		log.Println("🖥️  Starting Project Server on port 8082...")
+		app := CreateProjectServer(resources)
+		if err := app.Listen(":8082"); err != nil {
+			log.Fatalf("❌ Project Server failed to start: %v", err)
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		log.Println("🖥️  Starting Org Server on port 8083...")
+		app := CreateOrgServer(resources)
+		if err := app.Listen(":8083"); err != nil {
+			log.Fatalf("❌ Org Server failed to start: %v", err)
+		}
+	}()
+
 	log.Println("✅ Both servers are starting concurrently...")
 	log.Println("   📡 API Server: http://localhost:8080")
 	log.Println("   🖥️  UI Server:  http://localhost:8081")
+	log.Println("   📡  Project Server:  http://localhost:8082")
+	log.Println("   🖥️  Org Server:  http://localhost:8082")
 
 	wg.Wait()
-	log.Println("⚠️  Both servers have stopped")
+	log.Println("⚠️  All servers have stopped")
 }

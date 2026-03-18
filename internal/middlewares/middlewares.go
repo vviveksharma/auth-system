@@ -14,83 +14,83 @@ import (
 )
 
 func TenantMiddleWare() fiber.Handler {
-    return func(c *fiber.Ctx) error {
-        log.Println("Inside the TenantMiddleWare")
-        
-        // Extract Authorization header
-        authHeader := c.Get("Authorization")
-        if authHeader == "" {
-            return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-                "error":       true,
-                "message":     "Missing authorization token",
-                "status_code": fiber.StatusUnauthorized,
-            })
-        }
+	return func(c *fiber.Ctx) error {
+		log.Println("Inside the TenantMiddleWare")
 
-        // Extract token from "Bearer <token>" format
-        tokenStr := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))  // ✅ Added space
-        if tokenStr == "" {
-            return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-                "error":       true,
-                "message":     "Invalid authorization header format. Expected: Bearer <token>",
-                "status_code": fiber.StatusUnauthorized,
-            })
-        }
+		// Extract Authorization header
+		authHeader := c.Get("Authorization")
+		if authHeader == "" {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error":       true,
+				"message":     "Missing authorization token",
+				"status_code": fiber.StatusUnauthorized,
+			})
+		}
 
-        // Check cache first
-        cacheKey := "token:" + tokenStr
-        var tenant_id string
-        err := cache.Get(cacheKey, &tenant_id)
-        if err == nil && tenant_id != "" {  // ✅ Check tenant_id is not empty
-            log.Printf("✅ Cache hit for token: %s, tenant_id: %s", tokenStr, tenant_id)
-            c.Locals("token", tokenStr)
-            c.Locals("tenant_id", tenant_id)
-            return c.Next()
-        }
+		// Extract token from "Bearer <token>" format
+		tokenStr := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer ")) // ✅ Added space
+		if tokenStr == "" {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error":       true,
+				"message":     "Invalid authorization header format. Expected: Bearer <token>",
+				"status_code": fiber.StatusUnauthorized,
+			})
+		}
 
-        log.Println("⚠️ Cache miss, verifying token from database...")
+		// Check cache first
+		cacheKey := "token:" + tokenStr
+		var tenant_id string
+		err := cache.Get(cacheKey, &tenant_id)
+		if err == nil && tenant_id != "" { // ✅ Check tenant_id is not empty
+			log.Printf("✅ Cache hit for token: %s, tenant_id: %s", tokenStr, tenant_id)
+			c.Locals("token", tokenStr)
+			c.Locals("tenant_id", tenant_id)
+			return c.Next()
+		}
 
-        // Verify token from database
-        Newtoken, err := repo.NewTokenRepository(db.DB)
-        if err != nil {
-            log.Printf("❌ Error creating token repository: %v", err)
-            return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-                "error":       true,
-                "message":     "error while connecting to db repository",
-                "status_code": 500,
-            })
-        }
+		log.Println("⚠️ Cache miss, verifying token from database...")
 
-        log.Println("Verifying token:", tokenStr)
-        var resp bool
-        resp, tenant_id, err = Newtoken.VerifyToken(tokenStr) 
-        if err != nil {
-            log.Printf("❌ Token verification failed: %v", err)
-            return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-                "error":       true,
-                "message":     fmt.Sprintf("error while verifying token: %v", err),
-                "status_code": fiber.StatusUnauthorized,
-            })
-        }
+		// Verify token from database
+		Newtoken, err := repo.NewTokenRepository(db.DB)
+		if err != nil {
+			log.Printf("❌ Error creating token repository: %v", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error":       true,
+				"message":     "error while connecting to db repository",
+				"status_code": 500,
+			})
+		}
 
-        // Check if token is valid
-        if !resp || tenant_id == "" { 
-            log.Println("❌ Invalid token or missing tenant_id")
-            return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-                "error":       true,
-                "message":     "Invalid or expired token",
-                "status_code": fiber.StatusUnauthorized,
-            })
-        }
+		log.Println("Verifying token:", tokenStr)
+		var resp bool
+		resp, tenant_id, err = Newtoken.VerifyToken(tokenStr)
+		if err != nil {
+			log.Printf("❌ Token verification failed: %v", err)
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error":       true,
+				"message":     fmt.Sprintf("error while verifying token: %v", err),
+				"status_code": fiber.StatusUnauthorized,
+			})
+		}
 
-        // Token is valid - cache it and continue
-        log.Printf("✅ Token verified successfully for tenant: %s", tenant_id)
-        cache.Set(cacheKey, tenant_id, 24*time.Hour)
-        c.Locals("token", tokenStr)
-        c.Locals("tenant_id", tenant_id)
-        
-        return c.Next() 
-    }
+		// Check if token is valid
+		if !resp || tenant_id == "" {
+			log.Println("❌ Invalid token or missing tenant_id")
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error":       true,
+				"message":     "Invalid or expired token",
+				"status_code": fiber.StatusUnauthorized,
+			})
+		}
+
+		// Token is valid - cache it and continue
+		log.Printf("✅ Token verified successfully for tenant: %s", tenant_id)
+		cache.Set(cacheKey, tenant_id, 24*time.Hour)
+		c.Locals("token", tokenStr)
+		c.Locals("tenant_id", tenant_id)
+
+		return c.Next()
+	}
 }
 
 func VerifyRoleRouteMapping(roleId string, route string, method string) (bool, error) {
@@ -133,4 +133,32 @@ func VerifyRoleRouteMapping(roleId string, route string, method string) (bool, e
 	fmt.Println("the flag: ", flag)
 
 	return flag, nil
+}
+
+func TestingMiddleware() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		log.Println("Inside the TenantMiddleWare")
+
+		tenantID := strings.TrimSpace(c.Get("tenant_id"))
+		if tenantID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":       true,
+				"message":     "Missing tenant_id header",
+				"status_code": fiber.StatusBadRequest,
+			})
+		}
+
+		userID := strings.TrimSpace(c.Get("user_id"))
+		if tenantID == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":       true,
+				"message":     "Missing user_id header",
+				"status_code": fiber.StatusBadRequest,
+			})
+		}
+
+		c.Locals("tenant_id", tenantID)
+		c.Locals("user_id", userID)
+		return c.Next()
+	}
 }

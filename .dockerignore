@@ -1,0 +1,37 @@
+# Git history
+.git/
+.gitignore
+
+# Compiled binaries
+api-server
+ui-server
+project-server
+org-server
+app
+
+# Go module cache and vendor
+vendor/
+
+# Test suite (separate module, not needed in app images)
+test-suite/
+
+# Documentation and specs
+*.md
+copilot/
+specs/
+
+# Data files
+pricing.csv
+
+# OS artifacts
+.DS_Store
+*.swp
+*.swo
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary and log files
+*.log
+tmp/

@@ -28,6 +28,7 @@ type UserService interface {
 	EnableUser(ctx context.Context, userId uuid.UUID) (*models.EnableUserResponse, error)
 	DisbaleUser(ctx context.Context, userId uuid.UUID) (*models.DisableUserResponse, error)
 	GetUserRole(ctx context.Context, userId uuid.UUID) (*models.GetRoleDetailsUser, error)
+	CreateCreds(ctx context.Context) (*models.CreateResetCredsResponse, error)
 }
 
 type User struct {
@@ -35,6 +36,7 @@ type User struct {
 	TokenRepo      repo.TokenRepository
 	ResetTokenRepo repo.ResetTokenRepositoryInterface
 	SharedRepo     repo.SharedRepoInterface
+	ResetCredsRepo repo.ResetCredsRepositryInterface
 }
 
 func NewUserService() (UserService, error) {
@@ -65,6 +67,11 @@ func (u *User) SetupRepo() error {
 		return err
 	}
 	u.SharedRepo = sharedRepo
+	resetCredsRepo, err := repo.NewResetCredRepositry(db.DB)
+	if err != nil {
+		return err
+	}
+	u.ResetCredsRepo = resetCredsRepo
 	return nil
 }
 
@@ -231,35 +238,13 @@ func (u *User) AssignUserRole(ctx context.Context, req *models.AssignRoleRequest
 
 func (u *User) ResetPassword(ctx context.Context, req *models.ResetPasswordRequest) (*models.ResetPasswordResponse, error) {
 	tenantId := ctx.Value("tenant_id").(string)
-	userDetails, err := u.UserRepo.GetUserByEmail(req.Email, uuid.MustParse(tenantId))
+	err := u.SharedRepo.VerifyRecoveryCode(req.Email, uuid.MustParse(tenantId), req.RecoveryCode)
 	if err != nil {
-		if err.Error() == "record not found" {
-			return nil, &dbmodels.ServiceResponse{
-				Code:    404,
-				Message: "Unable to find the user with the provided email: " + req.Email,
-			}
-		} else {
-			return nil, &dbmodels.ServiceResponse{
-				Code:    500,
-				Message: fmt.Sprintf("internal error while searching for user with email '%s': %s", req.Email, err.Error()),
-			}
-		}
+		return nil, err
 	}
-	// Create a unique token valid for 5 minutes
-	token, tokenErr := u.ResetTokenRepo.Create(&dbmodels.DBResetToken{
-		UserId:    userDetails.Id,
-		TenantId:  userDetails.TenantId,
-		ExpiresAt: time.Now().Add(15 * time.Minute),
-		IsActive:  true,
-	})
-	if tokenErr != nil {
-		return nil, &dbmodels.ServiceResponse{
-			Code:    500,
-			Message: fmt.Sprintf("failed to generate password reset token for user '%s': %s", req.Email, tokenErr.Error()),
-		}
-	}
+	// update the token to the db ad make it invalid
 	return &models.ResetPasswordResponse{
-		Message: "otp for the user: " + token.String(),
+		Message: "Recovery code matched",
 	}, nil
 }
 
@@ -498,5 +483,38 @@ func (u *User) GetUserRole(ctx context.Context, userId uuid.UUID) (*models.GetRo
 		UserId: userDetails.Id.String(),
 		Email:  userDetails.Email,
 		Roles:  userDetails.Roles,
+	}, nil
+}
+
+func (u *User) CreateCreds(ctx context.Context) (*models.CreateResetCredsResponse, error) {
+	tenantId := ctx.Value("tenant_id").(string)
+	userId := ctx.Value("user_id").(string)
+	userDetails, err := u.UserRepo.GetUserDetails(dbmodels.DBUser{
+		TenantId: uuid.MustParse(tenantId),
+		Id:       uuid.MustParse(userId),
+	})
+	if err != nil {
+		if err.Error() == "record not found" {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    404,
+				Message: fmt.Sprintf("User not found for tenant %s and user ID %s", tenantId, userId),
+			}
+		} else {
+			return nil, &dbmodels.ServiceResponse{
+				Code:    500,
+				Message: fmt.Sprintf("Failed to retrieve user details for tenant %s and user ID %s: %s", tenantId, userId, err.Error()),
+			}
+		}
+	}
+	fmt.Println(userDetails.Id)
+	codes, err := u.ResetCredsRepo.Create(uuid.MustParse(userId), userDetails.TenantId)
+	if err != nil {
+		return nil, &dbmodels.ServiceResponse{
+			Code:    500,
+			Message: "error while creating the recovery code for the user: " + err.Error(),
+		}
+	}
+	return &models.CreateResetCredsResponse{
+		Tokens: codes,
 	}, nil
 }
