@@ -172,10 +172,10 @@ func (q *QueueService) ConsumeMessages(conn *amqp.Connection, queue amqp.Queue) 
 		// Acknowledge or reject message
 		if processErr != nil {
 			log.Printf("❌ Error processing message: %v", processErr)
-			msg.Nack(false, true)
+			_ = msg.Nack(false, true) // #nosec G104 -- redelivery handled by AMQP broker
 		} else {
 			log.Printf("✅ Message processed successfully")
-			msg.Ack(false)
+			_ = msg.Ack(false) // #nosec G104 -- redelivery handled by AMQP broker
 		}
 	}
 

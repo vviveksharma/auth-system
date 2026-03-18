@@ -44,7 +44,9 @@ func InitSetup() {
 	}
 
 	if _, err := tx.Exec(seedSQL); err != nil {
-		tx.Rollback()
+		if rbErr := tx.Rollback(); rbErr != nil {
+			log.Printf("⚠️  initsetup: rollback failed: %v", rbErr)
+		}
 		log.Fatal("initsetup: seed SQL failed: ", err)
 	}
 

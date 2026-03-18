@@ -180,7 +180,7 @@ func loadMigrations(dir, direction string) []migration {
 	for _, f := range files {
 		base := filepath.Base(f)
 		name := strings.TrimSuffix(base, "."+direction+".sql")
-		content, err := os.ReadFile(f)
+		content, err := os.ReadFile(f) // #nosec G304 -- CLI tool reading its own SQL files, no user input
 		if err != nil {
 			log.Fatalf("ReadFile %q: %v", f, err)
 		}

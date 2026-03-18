@@ -20,7 +20,7 @@ func errResp(ctx *fiber.Ctx, err error) error {
 func parseOrgId(ctx *fiber.Ctx) (uuid.UUID, error) {
 	orgId, err := uuid.Parse(ctx.Params("id"))
 	if err != nil {
-		ctx.Status(fiber.StatusBadRequest).JSON(dbmodels.ServiceResponse{
+		_ = ctx.Status(fiber.StatusBadRequest).JSON(dbmodels.ServiceResponse{ // #nosec G104 -- fiber handles response errors
 			Code:    fiber.StatusBadRequest,
 			Message: "invalid organization id",
 		})

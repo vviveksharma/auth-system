@@ -66,7 +66,7 @@ func ApplicationKeyMiddleware() fiber.Handler {
 		}
 
 		// Cache the tenantID for this application key
-		cache.Set(cacheKey, tenantID, 1*time.Hour)
+		_ = cache.Set(cacheKey, tenantID, 1*time.Hour) // #nosec G104 -- best-effort cache
 		log.Printf("✅ Cached application key: %s -> tenant: %s", key, tenantID)
 
 		// Store tenant info for downstream middleware/handlers

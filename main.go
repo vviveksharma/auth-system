@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
 
 	"github.com/vviveksharma/auth/config"
 )
@@ -11,7 +12,12 @@ var ServerMode string // Set via ldflags during build
 
 func main() {
 	// Check environment variable first, then build-time flag
-	mode := os.Getenv("SERVER_MODE")
+	mode := strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\r' {
+			return -1 // strip newlines to prevent log injection (G706)
+		}
+		return r
+	}, os.Getenv("SERVER_MODE"))
 	if mode == "" {
 		mode = ServerMode // From ldflags
 	}
