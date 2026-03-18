@@ -5,8 +5,10 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	mathrand "math/rand"
+	"math/big"
 	"os"
+	"path/filepath"
+	"regexp"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -108,7 +110,11 @@ func ConvertTime(input string) time.Time {
 func GenerateRandomString(length int) string {
 	b := make([]rune, length)
 	for i := range b {
-		b[i] = charset[mathrand.Intn(len(charset))]
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			panic("crypto/rand failed: " + err.Error())
+		}
+		b[i] = charset[n.Int64()]
 	}
 	return string(b)
 }
@@ -116,7 +122,11 @@ func GenerateRandomString(length int) string {
 func GenerateOTP() string {
 	b := make([]rune, 6)
 	for i := range b {
-		b[i] = otpcharset[mathrand.Intn(len(otpcharset))]
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(otpcharset))))
+		if err != nil {
+			panic("crypto/rand failed: " + err.Error())
+		}
+		b[i] = otpcharset[n.Int64()]
 	}
 	return string(b)
 }
@@ -131,8 +141,16 @@ func GeneratePassword(password string, p *Argon2Params, salt string) (string, er
 	return hashBase64, nil
 }
 
+// safeRoleName only allows alphanumeric, dots, underscores, and hyphens —
+// prevents path traversal when roleName originates from DB data.
+var safeRoleName = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
+
 func ReadPermissionFile(roleName string) (string, error) {
-	file, err := os.Open("./permissions/" + roleName + ".json")
+	if !safeRoleName.MatchString(roleName) {
+		return "", fmt.Errorf("invalid role name: %q", roleName)
+	}
+	path := filepath.Join("./permissions", roleName+".json")
+	file, err := os.Open(path) // #nosec G304 -- path validated by safeRoleName above
 	if err != nil {
 		return "", err
 	}

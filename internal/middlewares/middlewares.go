@@ -85,7 +85,7 @@ func TenantMiddleWare() fiber.Handler {
 
 		// Token is valid - cache it and continue
 		log.Printf("✅ Token verified successfully for tenant: %s", tenant_id)
-		cache.Set(cacheKey, tenant_id, 24*time.Hour)
+		_ = cache.Set(cacheKey, tenant_id, 24*time.Hour) // #nosec G104 -- best-effort cache
 		c.Locals("token", tokenStr)
 		c.Locals("tenant_id", tenant_id)
 
@@ -128,7 +128,7 @@ func VerifyRoleRouteMapping(roleId string, route string, method string) (bool, e
 
 	hasAccess = flag
 
-	cache.Set(cacheKey, hasAccess, 30*time.Minute)
+	_ = cache.Set(cacheKey, hasAccess, 30*time.Minute) // #nosec G104 -- best-effort cache
 
 	fmt.Println("the flag: ", flag)
 

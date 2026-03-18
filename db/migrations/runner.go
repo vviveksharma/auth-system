@@ -39,14 +39,18 @@ func RunUp(db *sql.DB) error {
 		// Strip any BEGIN/COMMIT/ROLLBACK the file may contain — the runner
 		// manages the transaction itself, and CockroachDB rejects nested BEGIN.
 		if _, err := tx.Exec(stripTransactionWrappers(f.sql)); err != nil {
-			tx.Rollback()
+			if rbErr := tx.Rollback(); rbErr != nil {
+				log.Printf("⚠️  rollback failed after migration exec error: %v", rbErr)
+			}
 			return fmt.Errorf("execute migration %s: %w", f.name, err)
 		}
 		if _, err := tx.Exec(
 			fmt.Sprintf(`INSERT INTO %s (name) VALUES ($1)`, migrationsTable),
 			f.name,
 		); err != nil {
-			tx.Rollback()
+			if rbErr := tx.Rollback(); rbErr != nil {
+				log.Printf("⚠️  rollback failed after mark-applied error: %v", rbErr)
+			}
 			return fmt.Errorf("mark migration %s applied: %w", f.name, err)
 		}
 		if err := tx.Commit(); err != nil {

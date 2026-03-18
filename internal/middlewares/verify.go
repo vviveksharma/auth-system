@@ -37,7 +37,7 @@ func VerifyJWT(tokenStr string) (jwt.MapClaims, error) {
 
 	if err != nil {
 		// Token is invalid/expired - blacklist it for 1 hour
-		cache.Set("blacklist:"+tokenStr, "expired", 0)
+		_ = cache.Set("blacklist:"+tokenStr, "expired", 0) // #nosec G104 -- best-effort cache
 		return nil, fmt.Errorf("error while verifying token: %w", err)
 	}
 
@@ -47,13 +47,13 @@ func VerifyJWT(tokenStr string) (jwt.MapClaims, error) {
 			expiresAt := time.Unix(int64(exp), 0)
 			ttl := time.Until(expiresAt)
 			if ttl > 0 {
-				cache.Set("token:"+tokenStr, claims, ttl)
+				_ = cache.Set("token:"+tokenStr, claims, ttl) // #nosec G104 -- best-effort cache
 			}
 		}
 		return claims, nil
 	}
 
 	// Token is invalid - blacklist it
-	cache.Set("blacklist:"+tokenStr, "invalid", 1*time.Hour)
+	_ = cache.Set("blacklist:"+tokenStr, "invalid", 1*time.Hour) // #nosec G104 -- best-effort cache
 	return nil, fmt.Errorf("invalid token or claims")
 }

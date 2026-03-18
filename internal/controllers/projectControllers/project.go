@@ -22,7 +22,7 @@ func projectErrResp(ctx *fiber.Ctx, err error) error {
 func parseProjectId(ctx *fiber.Ctx) (uuid.UUID, error) {
 	id, err := uuid.Parse(ctx.Params("id"))
 	if err != nil {
-		ctx.Status(fiber.StatusBadRequest).JSON(dbmodels.ServiceResponse{
+		_ = ctx.Status(fiber.StatusBadRequest).JSON(dbmodels.ServiceResponse{ // #nosec G104 -- fiber handles response errors
 			Code:    fiber.StatusBadRequest,
 			Message: "invalid project id",
 		})
@@ -33,7 +33,7 @@ func parseProjectId(ctx *fiber.Ctx) (uuid.UUID, error) {
 func parseOrgIdParam(ctx *fiber.Ctx) (uuid.UUID, error) {
 	id, err := uuid.Parse(ctx.Params("orgId"))
 	if err != nil {
-		ctx.Status(fiber.StatusBadRequest).JSON(dbmodels.ServiceResponse{
+		_ = ctx.Status(fiber.StatusBadRequest).JSON(dbmodels.ServiceResponse{ // #nosec G104 -- fiber handles response errors
 			Code:    fiber.StatusBadRequest,
 			Message: "invalid organization id",
 		})

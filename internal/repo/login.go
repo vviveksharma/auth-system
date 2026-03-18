@@ -110,6 +110,6 @@ func (l *LoginRepository) Logout(userId uuid.UUID) error {
 	if update.Error != nil {
 		return update.Error
 	}
-	cache.Set("blacklist:"+loginDetails.JWTToken, "expired", 0)
+	_ = cache.Set("blacklist:"+loginDetails.JWTToken, "expired", 0) // #nosec G104 -- best-effort cache
 	return nil
 }
