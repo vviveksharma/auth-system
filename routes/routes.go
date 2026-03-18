@@ -9,6 +9,8 @@ import (
 	"github.com/redis/go-redis/v9"
 	_ "github.com/vviveksharma/auth/docs"
 	"github.com/vviveksharma/auth/internal/controllers"
+	orgcontrollers "github.com/vviveksharma/auth/internal/controllers/orgControllers"
+	projectcontrollers "github.com/vviveksharma/auth/internal/controllers/projectControllers"
 	tenantcontrollers "github.com/vviveksharma/auth/internal/controllers/tenantControllers"
 	"github.com/vviveksharma/auth/internal/middlewares"
 	"github.com/vviveksharma/auth/limiter"
@@ -25,6 +27,9 @@ func RoutesWithNewMiddleware(app *fiber.App, h *controllers.Handler, redisClient
 		MaxAge:        86400, // 24 hours
 	})
 	log.Println("   ✅ Static /docs")
+
+	test := app.Group("/testing")
+	test.Post("/create-creds", middlewares.TestingMiddleware(), h.CreateRecoveryCode)
 
 	app.Get("/swagger/*", swagger.New(swagger.Config{
 		URL:   "/docs/swagger.json",
@@ -76,7 +81,7 @@ func RoutesWithNewMiddleware(app *fiber.App, h *controllers.Handler, redisClient
 
 	// Special user routes that don't need authorization (just app key + auth)
 	userPublic := app.Group("/user")
-	userPublic.Post("/resetpassword", middlewares.PublicWithAppKey(), h.ResetUserPassword)
+	userPublic.Post("/resetpassword", middlewares.TestingMiddleware(), h.ResetUserPassword)
 	log.Println("   ✅ POST /user/resetpassword")
 
 	userPublic.Put("/setpassword", middlewares.PublicWithAppKey(), h.SetUserPassword)
@@ -188,4 +193,58 @@ func TenantRoutes(app *fiber.App, h *tenantcontrollers.TenantHandler, redisClien
 	tenantProtected.Delete("/user", h.DeleteUser)
 	log.Println("   ✅ DELETE  /tenant/user")
 	log.Println("✅ UI Server Routes setup complete!")
+}
+
+func ProjectRoutes(app *fiber.App, h *projectcontrollers.ProjectHandler) {
+	log.Println("🖥️  Setting up project server routes on (Port 8082):")
+	app.Get("/health", h.Welcome)
+
+	api := app.Group("/api/v1")
+	api.Use(middlewares.TestingMiddleware())
+
+	// Organization-scoped project routes
+	orgs := api.Group("/organizations")
+	orgs.Get("/:orgId/projects", h.ListProjects)
+	log.Println("   ✅ GET    /api/v1/organizations/:orgId/projects")
+	orgs.Post("/:orgId/projects", h.CreateProject)
+	log.Println("   ✅ POST   /api/v1/organizations/:orgId/projects")
+
+	// Project-scoped routes
+	projects := api.Group("/projects")
+	projects.Get("/:id/details", h.GetProjectDetail)
+	log.Println("   ✅ GET    /api/v1/projects/:id/details")
+	projects.Get("/:id/providers-breakdown", h.GetProvidersBreakdown)
+	log.Println("   ✅ GET    /api/v1/projects/:id/providers-breakdown")
+	projects.Get("/:id/errors", h.GetProjectErrors)
+	log.Println("   ✅ GET    /api/v1/projects/:id/errors")
+	projects.Put("/:id", h.UpdateProject)
+	log.Println("   ✅ PUT    /api/v1/projects/:id")
+	projects.Delete("/:id", h.DeleteProject)
+	log.Println("   ✅ DELETE /api/v1/projects/:id")
+
+	log.Println("✅ Project Server Routes setup complete!")
+}
+
+func OrgRoutes(app *fiber.App, h *orgcontrollers.OrgHandler) {
+	log.Println("🖥️  Setting up project server routes on (Port 8082):")
+	app.Get("/health", h.Welcome)
+
+	org := app.Group("/org")
+	org.Use(middlewares.TestingMiddleware())
+	org.Post("/orgcreate", h.CreateOrg)
+	org.Get("/", h.ListOrgs)
+	log.Println("   ✅ GET    /organizations")
+	org.Post("/", h.CreateOrg)
+	log.Println("   ✅ POST   /organizations")
+	org.Get("/:id", h.GetOrg)
+	log.Println("   ✅ GET    /organizations/:id")
+	org.Post("/:id/switch", h.SwitchOrg)
+	log.Println("   ✅ POST   /organizations/:id/switch")
+	org.Put("/:id", h.UpdateOrg)
+	log.Println("   ✅ PUT    /organizations/:id")
+	org.Delete("/:id", h.DeleteOrg)
+	log.Println("   ✅ DELETE /organizations/:id")
+	org.Get("/:id/stats", h.GetOrgStats)
+	log.Println("   ✅ GET    /organizations/:id/stats")
+
 }

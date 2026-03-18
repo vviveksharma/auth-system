@@ -13,6 +13,7 @@ type DBUser struct {
 	CreatedAt time.Time      `gorm:"column:created_at;not_null"`
 	UpdatedAt time.Time      `gorm:"column:updated_at;not_null"`
 	TenantId  uuid.UUID      `gorm:"type:uuid;not null"`
+	OrgId     uuid.UUID      `gorm:"type:uuid;not null"`
 	Name      string         `json:"name"`
 	Email     string         `json:"email"`
 	Password  string         `json:"password"`
@@ -26,7 +27,10 @@ func (DBUser) TableName() string {
 }
 
 func (*DBUser) BeforeCreate(tx *gorm.DB) error {
-	uuid := uuid.New().String()
+	uuid, err := uuid.NewV7()
+	if err != nil {
+		return err
+	}
 	tx.Statement.SetColumn("Id", uuid)
 	return nil
 }
@@ -49,7 +53,10 @@ func (DBRoles) TableName() string {
 }
 
 func (*DBRoles) BeforeCreate(tx *gorm.DB) error {
-	uuid := uuid.New().String()
+	uuid, err := uuid.NewV7()
+	if err != nil {
+		return err
+	}
 	tx.Statement.SetColumn("Id", uuid)
 	return nil
 }
@@ -72,7 +79,10 @@ func (DBLogin) TableName() string {
 }
 
 func (*DBLogin) BeforeCreate(tx *gorm.DB) error {
-	uuid := uuid.New().String()
+	uuid, err := uuid.NewV7()
+	if err != nil {
+		return err
+	}
 	tx.Statement.SetColumn("Id", uuid)
 	return nil
 }
@@ -94,7 +104,10 @@ func (DBTenant) TableName() string {
 }
 
 func (*DBTenant) BeforeCreate(tx *gorm.DB) error {
-	uuid := uuid.New().String()
+	uuid, err := uuid.NewV7()
+	if err != nil {
+		return err
+	}
 	tx.Statement.SetColumn("Id", uuid)
 	return nil
 }
@@ -118,7 +131,10 @@ func (DBToken) TableName() string {
 }
 
 func (*DBToken) BeforeCreate(tx *gorm.DB) error {
-	uuid := uuid.New().String()
+	uuid, err := uuid.NewV7()
+	if err != nil {
+		return err
+	}
 	tx.Statement.SetColumn("Id", uuid)
 	return nil
 }
@@ -137,7 +153,10 @@ func (DBTenantLogin) TableName() string {
 }
 
 func (*DBTenantLogin) BeforeCreate(tx *gorm.DB) error {
-	uuid := uuid.New().String()
+	uuid, err := uuid.NewV7()
+	if err != nil {
+		return err
+	}
 	tx.Statement.SetColumn("Id", uuid)
 	return nil
 }
@@ -156,7 +175,10 @@ func (DBRouteRole) TableName() string {
 }
 
 func (*DBRouteRole) BeforeCreate(tx *gorm.DB) error {
-	uuid := uuid.New().String()
+	uuid, err := uuid.NewV7()
+	if err != nil {
+		return err
+	}
 	tx.Statement.SetColumn("Id", uuid)
 	return nil
 }
@@ -183,7 +205,10 @@ func (DBResetToken) TableName() string {
 }
 
 func (*DBResetToken) BeforeCreate(tx *gorm.DB) error {
-	uuid := uuid.New().String()
+	uuid, err := uuid.NewV7()
+	if err != nil {
+		return err
+	}
 	tx.Statement.SetColumn("Id", uuid)
 	return nil
 }
@@ -204,7 +229,164 @@ func (DBMessage) TableName() string {
 }
 
 func (*DBMessage) BeforeCreate(tx *gorm.DB) error {
-	uuid := uuid.New().String()
+	uuid, err := uuid.NewV7()
+	if err != nil {
+		return err
+	}
+	tx.Statement.SetColumn("Id", uuid)
+	return nil
+}
+
+type DBOrganisation struct {
+	Id          uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
+	TenantId    uuid.UUID `gorm:"type:uuid;not null" json:"tenant_id"`
+	Name        string    `json:"name"`
+	Slug        string    `gorm:"uniqueIndex" json:"slug"`
+	Description string    `gorm:"type:text" json:"description"`
+	IconUrl     string    `gorm:"type:text" json:"icon_url"`
+	Plan        string    `gorm:"type:varchar(50);default:'free'" json:"plan"`
+	Status      string    `gorm:"type:varchar(50);default:'active'" json:"status"`
+	CreatedAt   time.Time `gorm:"column:created_at;not_null"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;not_null"`
+}
+
+func (DBOrganisation) TableName() string {
+	return "organisation_tbl"
+}
+
+func (*DBOrganisation) BeforeCreate(tx *gorm.DB) error {
+	uuid, err := uuid.NewV7()
+	if err != nil {
+		return err
+	}
+	tx.Statement.SetColumn("Id", uuid)
+	return nil
+}
+
+type DBResetCreds struct {
+	Id        uuid.UUID  `gorm:"type:uuid;primaryKey"`
+	TenantId  uuid.UUID  `gorm:"type:uuid;not null" json:"tenant_id"`
+	UserId    uuid.UUID  `gorm:"type:uuid;not null" json:"user_id"`
+	Active    bool       `json:"active"`
+	CodeHash  string     `gorm:"type:text;not null;index"`
+	Salt      string     `gorm:"type:text;not null;index"`
+	CreatedAt time.Time  `json:"created_at"`
+	UsedAt    *time.Time `json:"used_at"`
+}
+
+func (DBResetCreds) TableName() string {
+	return "reset_creds_tbl"
+}
+
+func (*DBResetCreds) BeforeCreate(tx *gorm.DB) error {
+	uuid := uuid.New()
+	tx.Statement.SetColumn("Id", uuid)
+	return nil
+}
+
+type DBProject struct {
+	Id          uuid.UUID  `gorm:"type:uuid;primaryKey"`
+	TenantId    uuid.UUID  `gorm:"type:uuid;not null" json:"tenant_id"`
+	OrgId       uuid.UUID  `gorm:"type:uuid;not null" json:"org_id"`
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
+	Environment string     `json:"environment"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   *time.Time `json:"updated_at"`
+}
+
+func (DBProject) TableName() string {
+	return "project_tbl"
+}
+
+func (*DBProject) BeforeCreate(tx *gorm.DB) error {
+	uuid, err := uuid.NewV7()
+	if err != nil {
+		return err
+	}
+	tx.Statement.SetColumn("Id", uuid)
+	return nil
+}
+
+type DBProjectDailyStats struct {
+	Id                 uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ProjectId          uuid.UUID `gorm:"type:uuid;not null;index" json:"project_id"`
+	OrganizationId     uuid.UUID `gorm:"type:uuid;not null;index" json:"organization_id"`
+	TenantId           uuid.UUID `gorm:"type:uuid;not null" json:"tenant_id"`
+	Date               time.Time `gorm:"type:date;not null" json:"date"`
+	TotalRequests      int64     `gorm:"default:0" json:"total_requests"`
+	SuccessfulRequests int64     `gorm:"default:0" json:"successful_requests"`
+	FailedRequests     int64     `gorm:"default:0" json:"failed_requests"`
+	TotalTokens        int64     `gorm:"default:0" json:"total_tokens"`
+	TotalCostUsd       float64   `gorm:"type:decimal(12,6);default:0" json:"total_cost_usd"`
+	AvgDurationMs      int       `gorm:"default:0" json:"avg_duration_ms"`
+	CreatedAt          time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt          time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+}
+
+func (DBProjectDailyStats) TableName() string {
+	return "project_daily_stats"
+}
+
+func (*DBProjectDailyStats) BeforeCreate(tx *gorm.DB) error {
+	uuid, err := uuid.NewV7()
+	if err != nil {
+		return err
+	}
+	tx.Statement.SetColumn("Id", uuid)
+	return nil
+}
+
+type DBProjectMonthlyStats struct {
+	Id             uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ProjectId      uuid.UUID `gorm:"type:uuid;not null;index" json:"project_id"`
+	OrganizationId uuid.UUID `gorm:"type:uuid;not null;index" json:"organization_id"`
+	TenantId       uuid.UUID `gorm:"type:uuid;not null" json:"tenant_id"`
+	Year           int       `gorm:"not null" json:"year"`
+	Month          int       `gorm:"not null" json:"month"`
+	TotalRequests  int64     `gorm:"default:0" json:"total_requests"`
+	TotalTokens    int64     `gorm:"default:0" json:"total_tokens"`
+	TotalCostUsd   float64   `gorm:"type:decimal(12,6);default:0" json:"total_cost_usd"`
+	ApiKeysCount   int       `gorm:"default:0" json:"api_keys_count"`
+	CreatedAt      time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt      time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+}
+
+func (DBProjectMonthlyStats) TableName() string {
+	return "project_monthly_stats"
+}
+
+func (*DBProjectMonthlyStats) BeforeCreate(tx *gorm.DB) error {
+	uuid, err := uuid.NewV7()
+	if err != nil {
+		return err
+	}
+	tx.Statement.SetColumn("Id", uuid)
+	return nil
+}
+
+type DBProviderDailyStats struct {
+	Id             uuid.UUID  `gorm:"type:uuid;primaryKey"`
+	OrganizationId uuid.UUID  `gorm:"type:uuid;not null;index" json:"organization_id"`
+	ProjectId      *uuid.UUID `gorm:"type:uuid;index" json:"project_id"`
+	Provider       string     `gorm:"type:varchar(50);not null;index" json:"provider"`
+	Date           time.Time  `gorm:"type:date;not null" json:"date"`
+	TotalRequests  int64      `gorm:"default:0" json:"total_requests"`
+	TotalTokens    int64      `gorm:"default:0" json:"total_tokens"`
+	TotalCostUsd   float64    `gorm:"type:decimal(12,6);default:0" json:"total_cost_usd"`
+	CreatedAt      time.Time  `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt      time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
+}
+
+func (DBProviderDailyStats) TableName() string {
+	return "provider_daily_stats"
+}
+
+func (*DBProviderDailyStats) BeforeCreate(tx *gorm.DB) error {
+	uuid, err := uuid.NewV7()
+	if err != nil {
+		return err
+	}
 	tx.Statement.SetColumn("Id", uuid)
 	return nil
 }

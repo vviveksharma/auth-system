@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1
+# Dockerfile.org - Org Server (Port 8083)
+
+FROM golang:1.26-alpine AS builder
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
+COPY . .
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build -o org-server -ldflags="-X main.ServerMode=Org" ./
+
+FROM alpine:latest
+
+WORKDIR /app
+
+RUN apk --no-cache add ca-certificates
+
+COPY --from=builder /app/org-server .
+COPY --from=builder /app/.env ./.env
+COPY --from=builder /app/docs /app/docs
+COPY --from=builder /app/permissions /app/permissions
+
+EXPOSE 8083
+CMD ["./org-server"]

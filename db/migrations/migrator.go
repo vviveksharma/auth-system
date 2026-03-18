@@ -23,6 +23,12 @@ func AutoMigrator(DB *gorm.DB) {
 		&models.DBRouteRole{},
 		&models.DBResetToken{},
 		&models.DBMessage{},
+		&models.DBOrganisation{},
+		&models.DBResetCreds{},
+		&models.DBProject{},
+		&models.DBProjectDailyStats{},
+		&models.DBProjectMonthlyStats{},
+		&models.DBProviderDailyStats{},
 	}
 
 	// Migrate each model individually with error handling

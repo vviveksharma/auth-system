@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
-	"github.com/vviveksharma/auth/db/migrations"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -15,11 +15,21 @@ var DB *gorm.DB
 
 func ConnectDB() {
 	// Get DB host from environment, default to localhost for local development
-	dbHost := os.Getenv("DB_HOST")
+	// Strip newlines from env vars to prevent log injection (G706)
+	stripNL := func(s string) string {
+		return strings.Map(func(r rune) rune {
+			if r == '\n' || r == '\r' {
+				return -1
+			}
+			return r
+		}, s)
+	}
+
+	dbHost := stripNL(os.Getenv("DB_HOST"))
 	if dbHost == "" {
 		dbHost = "localhost"
 	}
-	dbPort := os.Getenv("DB_PORT")
+	dbPort := stripNL(os.Getenv("DB_PORT"))
 	if dbPort == "" {
 		dbPort = "26257"
 	}
@@ -42,7 +52,4 @@ func ConnectDB() {
 	sqlDb.SetConnMaxLifetime(time.Hour)
 	sqlDb.SetConnMaxIdleTime(10 * time.Minute)
 	fmt.Println("The database ping returned: ", sqlDb.Ping())
-
-	// Making migrations
-	migrations.AutoMigrator(DB)
 }

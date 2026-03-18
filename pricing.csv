@@ -1,0 +1,16 @@
+Provider,Plan_Name,USD_Price,INR_Price,EUR_Price
+OpenAI,ChatGPT Free,0,0,0
+OpenAI,ChatGPT Go,8,735.92,6.88
+OpenAI,ChatGPT Plus,20,1839.80,17.22
+OpenAI,ChatGPT Pro,200,18398.00,172.21
+Anthropic,Claude Free,0,0,0
+Anthropic,Claude Pro,20,1839.80,17.22
+Anthropic,Claude Max 100,100,9199.00,86.11
+Anthropic,Claude Max 200,200,18398.00,172.21
+Google,Gemini Free,0,0,0
+Google,Gemini Advanced,19.99,1838.88,17.21
+Google,Gemini Business,20,1839.80,17.22
+Google,Gemini AI Ultra,249.99,22996.58,215.26
+Cursor,Cursor Hobby,0,0,0
+Cursor,Cursor Pro,20,1839.80,17.22
+Cursor,Cursor Business,40,3679.60,34.44

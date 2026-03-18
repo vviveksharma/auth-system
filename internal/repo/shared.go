@@ -8,14 +8,17 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	reqmodels "github.com/vviveksharma/auth/internal/models"
+	"github.com/vviveksharma/auth/internal/utils"
 	"github.com/vviveksharma/auth/models"
 	"gorm.io/gorm"
 )
 
 type SharedRepo struct {
-	RoleRepo      RoleRepositoryInterface
-	RouteRoleRepo RouteRoleRepositoryInterface
-	DB            *gorm.DB
+	RoleRepo       RoleRepositoryInterface
+	RouteRoleRepo  RouteRoleRepositoryInterface
+	ResetCredsRepo ResetCredsRepositryInterface
+	UserRepo       UserRepositoryInterface
+	DB             *gorm.DB
 }
 
 type SharedRepoInterface interface {
@@ -23,6 +26,7 @@ type SharedRepoInterface interface {
 	UpdateCustomRole(roleId uuid.UUID, tenantId uuid.UUID, addPermissions []reqmodels.Permission, removePermissions []reqmodels.Permission) error
 	DeleteCustomRole(roleId uuid.UUID, tenantId uuid.UUID) error
 	DeleteUser(userId uuid.UUID, tenantId uuid.UUID) error
+	VerifyRecoveryCode(email string, tenantId uuid.UUID, recoveryCode string) error
 }
 
 func NewSharedRepository(db *gorm.DB) (SharedRepoInterface, error) {
@@ -34,10 +38,20 @@ func NewSharedRepository(db *gorm.DB) (SharedRepoInterface, error) {
 	if err != nil {
 		return nil, errors.New("error from the shared reposistry with the route: " + err.Error())
 	}
+	resetCredsRepo, err := NewResetCredRepositry(db)
+	if err != nil {
+		return nil, errors.New("error from the shared reposistry with the route: " + err.Error())
+	}
+	userRepo, err := NewUserRepository(db)
+	if err != nil {
+		return nil, errors.New("error from the shared reposistry with the route: " + err.Error())
+	}
 	return &SharedRepo{
-		DB:            db,
-		RoleRepo:      roleRepo,
-		RouteRoleRepo: routeRepo}, nil
+		DB:             db,
+		RoleRepo:       roleRepo,
+		ResetCredsRepo: resetCredsRepo,
+		UserRepo:       userRepo,
+		RouteRoleRepo:  routeRepo}, nil
 }
 
 func (s *SharedRepo) CreateCustomRole(req *reqmodels.CreateCustomRole, tenantId uuid.UUID) error {
@@ -217,6 +231,67 @@ func (s *SharedRepo) DeleteUser(userId uuid.UUID, tenantId uuid.UUID) error {
 		fmt.Printf("Error committing transaction: %v\n", err)
 		return err
 	}
+
+	return nil
+}
+
+func (s *SharedRepo) VerifyRecoveryCode(email string, tenantId uuid.UUID, recoveryCode string) error {
+	transaction := s.DB.Begin()
+	if transaction.Error != nil {
+		fmt.Printf("Failed to begin transaction: %v\n", transaction.Error)
+		return transaction.Error
+	}
+	defer transaction.Rollback()
+	userDetails, err := s.UserRepo.GetUserByEmail(email, tenantId)
+	if err != nil {
+		if err.Error() == "record not found" {
+			return &models.ServiceResponse{
+				Code:    404,
+				Message: "Unable to find the user with the provided email: " + email,
+			}
+		} else {
+			return &models.ServiceResponse{
+				Code:    500,
+				Message: fmt.Sprintf("internal error while searching for user with email '%s': %s", email, err.Error()),
+			}
+		}
+	}
+	fmt.Println(userDetails)
+	codes, err := s.ResetCredsRepo.ListAllCreds(userDetails.Id, tenantId)
+	if err != nil {
+		return &models.ServiceResponse{
+			Code:    500,
+			Message: "error while fetching the recovery codes for the given user",
+		}
+	}
+
+	var matchedCred *models.DBResetCreds
+
+	for _, c := range codes {
+		ok, _ := utils.ComparePassword(recoveryCode, c.CodeHash, c.Salt, utils.DefaultParams)
+		if ok {
+			matchedCred = c
+			break
+		}
+	}
+
+	if matchedCred == nil {
+		return &models.ServiceResponse{
+			Code:    400,
+			Message: "Invalid email or recovery code",
+		}
+	}
+
+	err = s.ResetCredsRepo.UpdateUsage(userDetails.Id, tenantId, matchedCred.Id)
+
+	if err != nil {
+		return &models.ServiceResponse{
+			Code:    500,
+			Message: "error while updating the usage of the recovery code provided" + err.Error(),
+		}
+	}
+
+	transaction.Commit()
 
 	return nil
 }
